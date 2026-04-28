@@ -1,9 +1,110 @@
 "use client";
 import { useEffect, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { Users, Building2, Umbrella, DollarSign, TrendingUp, TrendingDown, Clock, Briefcase } from "lucide-react";
+import { Users, Building2, Umbrella, DollarSign, TrendingUp, TrendingDown, Clock, Cake } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
+
+const MONTHS_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+
+interface Aniversariante {
+  id: string;
+  nome: string;
+  dia: number;
+  mes: number;
+  cargo: string;
+  restaurante: string;
+  isToday: boolean;
+}
+
+function BirthdayWidget() {
+  const today = new Date();
+  const [month, setMonth] = useState(today.getUTCMonth() + 1);
+  const [list, setList] = useState<Aniversariante[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/aniversarios?month=${month}`)
+      .then((r) => r.json())
+      .then(setList)
+      .finally(() => setLoading(false));
+  }, [month]);
+
+  function changeMonth(delta: number) {
+    setMonth((m) => ((m - 1 + delta + 12) % 12) + 1);
+  }
+
+  const todayCount = list.filter((a) => a.isToday).length;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+              <Cake size={16} className="text-red-600" />
+            </div>
+            <CardTitle className="text-base">Aniversariantes</CardTitle>
+            {todayCount > 0 && (
+              <span className="bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">
+                {todayCount} hoje!
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            <button onClick={() => changeMonth(-1)} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors text-lg leading-none">‹</button>
+            <span className="text-sm font-medium text-gray-700 w-20 text-center">{MONTHS_PT[month - 1]}</span>
+            <button onClick={() => changeMonth(1)} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors text-lg leading-none">›</button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <div className="w-6 h-6 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : list.length === 0 ? (
+          <div className="text-center py-8 text-gray-400">
+            <Cake size={28} className="mx-auto mb-2 opacity-30" />
+            <p className="text-sm">Nenhum aniversariante em {MONTHS_PT[month - 1]}</p>
+          </div>
+        ) : (
+          <ul className="space-y-2 max-h-72 overflow-y-auto pr-1">
+            {list.map((a) => (
+              <li
+                key={a.id}
+                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all ${
+                  a.isToday
+                    ? "bg-red-50 border border-red-200"
+                    : "hover:bg-gray-50"
+                }`}
+              >
+                {/* Day badge */}
+                <div className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center shrink-0 ${
+                  a.isToday ? "bg-red-600 text-white" : "bg-gray-100 text-gray-700"
+                }`}>
+                  <span className="text-base font-bold leading-none">{String(a.dia).padStart(2, "0")}</span>
+                  <span className="text-[9px] font-medium leading-tight opacity-70 uppercase">{MONTHS_PT[a.mes - 1].slice(0, 3)}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-semibold truncate ${a.isToday ? "text-red-700" : "text-gray-900"}`}>
+                    {a.nome}
+                    {a.isToday && <span className="ml-1.5 text-xs">🎂</span>}
+                  </p>
+                  <p className="text-xs text-gray-400 truncate">{a.cargo} · {a.restaurante}</p>
+                </div>
+                {a.isToday && (
+                  <span className="text-xs font-bold text-red-600 shrink-0">Hoje</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 interface DashboardData {
   totalFuncionarios: number;
@@ -147,8 +248,12 @@ export function DashboardContent() {
         </Card>
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      {/* Birthday widget + Charts */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <div className="xl:col-span-1">
+          <BirthdayWidget />
+        </div>
+        <div className="xl:col-span-2 grid grid-cols-1 xl:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
             <CardTitle>Funcionários por Restaurante</CardTitle>
@@ -206,6 +311,7 @@ export function DashboardContent() {
             </div>
           </CardContent>
         </Card>
+        </div>
       </div>
     </div>
   );
