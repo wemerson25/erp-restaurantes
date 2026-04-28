@@ -224,9 +224,8 @@ export function DashboardContent() {
       {/* Stats */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard
-          title="Total de Funcionários"
-          value={data.totalFuncionarios}
-          sub={`${data.funcionariosAtivos} ativos`}
+          title="Funcionários Ativos"
+          value={data.funcionariosAtivos}
           icon={Users}
           color="bg-red-600"
         />

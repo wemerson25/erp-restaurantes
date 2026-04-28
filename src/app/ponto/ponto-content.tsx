@@ -184,6 +184,12 @@ export function PontoContent() {
     }
   }
 
+  async function handleDeleteRegistro(id: string) {
+    if (!confirm("Excluir este registro de ponto?")) return;
+    await fetch(`/api/ponto/${id}`, { method: "DELETE" });
+    fetchRegistros();
+  }
+
   const totalHorasExtras = registros.reduce((acc, r) => acc + (r.horasExtras ?? 0), 0);
   const totalHoras = registros.reduce((acc, r) => acc + (r.horasTrabalhadas ?? 0), 0);
   const faltas = registros.filter((r) => r.ocorrencia === "FALTA").length;
@@ -313,6 +319,7 @@ export function PontoContent() {
                   <th className="px-4 py-3 text-left font-semibold text-gray-600">H. Trabalhadas</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-600">H. Extras</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-600">Ocorrência</th>
+                  <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -338,6 +345,15 @@ export function PontoContent() {
                         <Badge variant={ocorrenciaVariant[r.ocorrencia ?? "NORMAL"] ?? "secondary"} className="text-xs">
                           {ocorrenciaLabel[r.ocorrencia ?? "NORMAL"] ?? r.ocorrencia}
                         </Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => handleDeleteRegistro(r.id)}
+                          className="p-1.5 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Excluir registro"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </td>
                     </tr>
                   );

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { Play, Loader2, DollarSign, CheckCircle } from "lucide-react";
+import { Play, Loader2, DollarSign, CheckCircle, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -81,6 +81,12 @@ export function FolhaContent() {
     fetchFolhas();
   }
 
+  async function handleDeleteFolha(id: string, nome: string) {
+    if (!confirm(`Excluir folha de ${nome}?`)) return;
+    await fetch(`/api/folha/${id}`, { method: "DELETE" });
+    fetchFolhas();
+  }
+
   const totalBruto = folhas.reduce((acc, f) => acc + f.salarioBruto, 0);
   const totalLiquido = folhas.reduce((acc, f) => acc + f.salarioLiquido, 0);
   const totalINSS = folhas.reduce((acc, f) => acc + f.descontoINSS, 0);
@@ -156,9 +162,18 @@ export function FolhaContent() {
                     <span className="text-gray-500">IRRF</span><span className="text-right text-red-600">-{formatCurrency(f.descontoIRRF)}</span>
                     <span className="text-gray-500 font-semibold">Líquido</span><span className="text-right text-green-700 font-bold">{formatCurrency(f.salarioLiquido)}</span>
                   </div>
-                  <div className="flex justify-end">
-                    {f.status === "PENDENTE" && <Button size="sm" variant="outline" onClick={() => atualizarStatus(f.id, "APROVADA")}>Aprovar</Button>}
-                    {f.status === "APROVADA" && <Button size="sm" variant="success" onClick={() => atualizarStatus(f.id, "PAGA")}><CheckCircle size={13} /> Pagar</Button>}
+                  <div className="flex justify-between items-center">
+                    <button
+                      onClick={() => handleDeleteFolha(f.id, f.funcionario.nome)}
+                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Excluir folha"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                    <div className="flex gap-2">
+                      {f.status === "PENDENTE" && <Button size="sm" variant="outline" onClick={() => atualizarStatus(f.id, "APROVADA")}>Aprovar</Button>}
+                      {f.status === "APROVADA" && <Button size="sm" variant="success" onClick={() => atualizarStatus(f.id, "PAGA")}><CheckCircle size={13} /> Pagar</Button>}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -197,8 +212,17 @@ export function FolhaContent() {
                       <td className="px-4 py-3 text-right font-bold text-green-700">{formatCurrency(f.salarioLiquido)}</td>
                       <td className="px-4 py-3"><Badge variant={statusVariant[f.status] as never}>{f.status}</Badge></td>
                       <td className="px-4 py-3 text-right">
-                        {f.status === "PENDENTE" && <Button size="sm" variant="outline" onClick={() => atualizarStatus(f.id, "APROVADA")}>Aprovar</Button>}
-                        {f.status === "APROVADA" && <Button size="sm" variant="success" onClick={() => atualizarStatus(f.id, "PAGA")}><CheckCircle size={13} /> Pagar</Button>}
+                        <div className="flex items-center justify-end gap-2">
+                          {f.status === "PENDENTE" && <Button size="sm" variant="outline" onClick={() => atualizarStatus(f.id, "APROVADA")}>Aprovar</Button>}
+                          {f.status === "APROVADA" && <Button size="sm" variant="success" onClick={() => atualizarStatus(f.id, "PAGA")}><CheckCircle size={13} /> Pagar</Button>}
+                          <button
+                            onClick={() => handleDeleteFolha(f.id, f.funcionario.nome)}
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Excluir folha"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

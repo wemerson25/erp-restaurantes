@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Loader2, UserCircle2 } from "lucide-react";
+import { Loader2, UserCircle2, Trash2 } from "lucide-react";
 import { Select } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -123,14 +123,26 @@ export function ColaboradorView({ funcionarios, filterMonth }: Props) {
   const [data, setData] = useState<ColabData | null>(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (!funcionarioId) { setData(null); return; }
+  function refetch() {
+    if (!funcionarioId) return;
     setLoading(true);
     fetch(`/api/ponto/colaborador?funcionarioId=${funcionarioId}&month=${filterMonth}`)
       .then((r) => r.json())
       .then(setData)
       .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    if (!funcionarioId) { setData(null); return; }
+    refetch();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [funcionarioId, filterMonth]);
+
+  async function handleDeleteRegistro(id: string) {
+    if (!confirm("Excluir este registro de ponto?")) return;
+    await fetch(`/api/ponto/${id}`, { method: "DELETE" });
+    refetch();
+  }
 
   const days = getDaysInMonth(filterMonth);
 
@@ -235,6 +247,7 @@ export function ColaboradorView({ funcionarios, filterMonth }: Props) {
                     <th className="px-3 py-3 text-left font-semibold text-gray-600">Saída</th>
                     <th className="px-3 py-3 text-left font-semibold text-gray-600">Horas</th>
                     <th className="px-3 py-3 text-left font-semibold text-gray-600">Status</th>
+                    <th className="px-3 py-3" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -267,6 +280,15 @@ export function ColaboradorView({ funcionarios, filterMonth }: Props) {
                               {pontoOcorrLabel[oc] ?? oc}
                             </Badge>
                           </td>
+                          <td className="px-3 py-2.5">
+                            <button
+                              onClick={() => handleDeleteRegistro(r.id)}
+                              className="p-1 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Excluir registro"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </td>
                         </tr>
                       );
                     }
@@ -282,6 +304,7 @@ export function ColaboradorView({ funcionarios, filterMonth }: Props) {
                           <td className="px-3 py-2.5">
                             <Badge variant="secondary" className="text-xs bg-indigo-100 text-indigo-700 border-0">Férias</Badge>
                           </td>
+                          <td className="px-3 py-2.5" />
                         </tr>
                       );
                     }
@@ -299,6 +322,7 @@ export function ColaboradorView({ funcionarios, filterMonth }: Props) {
                           <td className="px-3 py-2.5">
                             <Badge variant="warning" className="text-xs">Ausência</Badge>
                           </td>
+                          <td className="px-3 py-2.5" />
                         </tr>
                       );
                     }
@@ -309,6 +333,7 @@ export function ColaboradorView({ funcionarios, filterMonth }: Props) {
                         <td className="px-3 py-2.5 font-mono text-xs text-gray-400">{dateFormatted}</td>
                         <td className={`px-3 py-2.5 text-xs font-semibold ${isWeekend ? "text-blue-400" : "text-gray-400"}`}>{dayOfWeek}</td>
                         <td colSpan={6} className="px-3 py-2.5 text-gray-300 text-xs italic">Sem registro</td>
+                        <td className="px-3 py-2.5" />
                       </tr>
                     );
                   })}
