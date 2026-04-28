@@ -49,13 +49,14 @@ export default function LoginPage() {
         <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full opacity-10" style={{ background: "radial-gradient(circle, white, transparent)", transform: "translate(-30%, 30%)" }} />
 
         <div className="relative z-10 text-center">
-          <div className="bg-white rounded-2xl p-6 mb-8 shadow-2xl inline-block">
+          <div className="mb-8 inline-block">
             <Image
               src="/logo-ykedin.png"
               alt="Grupo Ykedin"
-              width={220}
-              height={80}
+              width={240}
+              height={88}
               className="object-contain"
+              style={{ mixBlendMode: "multiply", filter: "brightness(0) invert(1)" }}
               priority
             />
           </div>
