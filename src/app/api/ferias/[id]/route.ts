@@ -21,7 +21,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     update.dataFim = dataFim;
     update.diasCorridos = diasCorridos;
     if (data.diasVendidos !== undefined) {
-      update.diasVendidos = Math.max(0, Math.min(Math.floor(diasCorridos / 3), Number(data.diasVendidos) || 0));
+      update.diasVendidos = Math.max(0, Math.min(10, 30 - diasCorridos, Number(data.diasVendidos) || 0));
     }
   }
 

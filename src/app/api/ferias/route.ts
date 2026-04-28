@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   const dataFim = new Date(data.dataFim);
   const diasCorridos = Math.ceil((dataFim.getTime() - dataInicio.getTime()) / 86400000) + 1;
 
-  const diasVendidos = Math.max(0, Math.min(Math.floor(diasCorridos / 3), Number(data.diasVendidos) || 0));
+  const diasVendidos = Math.max(0, Math.min(10, 30 - diasCorridos, Number(data.diasVendidos) || 0));
 
   const ferias = await prisma.ferias.create({
     data: {

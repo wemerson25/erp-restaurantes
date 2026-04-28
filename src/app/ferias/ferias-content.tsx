@@ -525,7 +525,7 @@ function AgendarModal({ funcionarioId, onSuccess, onClose }: { funcionarioId: st
     }
   }, [form.dataInicio, form.dataFim]);
 
-  const maxVendidos = Math.floor(dias / 3);
+  const maxVendidos = Math.min(10, Math.max(0, 30 - dias));
 
   useEffect(() => {
     if (!venderDias) setForm(p => ({ ...p, diasVendidos: 0 }));
@@ -539,7 +539,7 @@ function AgendarModal({ funcionarioId, onSuccess, onClose }: { funcionarioId: st
     e.preventDefault();
     setError("");
     if (dias <= 0) { setError("Data fim deve ser após a data início"); return; }
-    if (form.diasVendidos > maxVendidos) { setError(`Máximo de dias a vender: ${maxVendidos} (1/3 de ${dias})`); return; }
+    if (form.diasVendidos > maxVendidos) { setError(`Máximo de dias a vender: ${maxVendidos} (30 dias - ${dias}d de gozo)`); return; }
     setSaving(true);
     try {
       const res = await fetch("/api/ferias", {
@@ -613,7 +613,7 @@ function AgendarModal({ funcionarioId, onSuccess, onClose }: { funcionarioId: st
                   <div className="flex-1">
                     <p className="text-xs text-gray-400 mb-1">Máx. permitido (CLT)</p>
                     <p className="text-sm font-bold text-amber-600">{maxVendidos} dias</p>
-                    <p className="text-xs text-gray-400">1/3 de {dias}d</p>
+                    <p className="text-xs text-gray-400">30d período − {dias}d gozo</p>
                   </div>
                 </div>
                 {dias > 0 && form.diasVendidos > 0 && (
