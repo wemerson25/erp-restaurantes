@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Plus, Loader2, Clock, Upload, CheckCircle2, AlertCircle } from "lucide-react";
+import { Plus, Loader2, Clock, Upload, CheckCircle2, AlertCircle, AlarmClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -28,9 +28,16 @@ interface Funcionario { id: string; nome: string; matricula: string }
 
 const ocorrenciaVariant: Record<string, "success" | "warning" | "destructive" | "secondary"> = {
   NORMAL: "success",
-  ATRASO: "warning",
+  ATRASO: "destructive",
   FALTA: "destructive",
   SAIDA_ANTECIPADA: "warning",
+};
+
+const ocorrenciaLabel: Record<string, string> = {
+  NORMAL: "Normal",
+  ATRASO: "Atraso",
+  FALTA: "Falta",
+  SAIDA_ANTECIPADA: "Saída Antecipada",
 };
 
 interface AFDResult {
@@ -163,15 +170,16 @@ export function PontoContent() {
   const totalHorasExtras = registros.reduce((acc, r) => acc + (r.horasExtras ?? 0), 0);
   const totalHoras = registros.reduce((acc, r) => acc + (r.horasTrabalhadas ?? 0), 0);
   const faltas = registros.filter((r) => r.ocorrencia === "FALTA").length;
+  const atrasos = registros.filter((r) => r.ocorrencia === "ATRASO").length;
 
   return (
     <div className="space-y-4">
-      {/* Stats do dia */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* Stats do período */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Card>
           <div className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
-              <Clock size={18} className="text-orange-600" />
+            <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center">
+              <Clock size={18} className="text-gray-600" />
             </div>
             <div>
               <p className="text-xs text-gray-500">Total de Registros</p>
@@ -187,6 +195,17 @@ export function PontoContent() {
             <div>
               <p className="text-xs text-gray-500">Horas Extras</p>
               <p className="text-2xl font-bold text-blue-600">{totalHorasExtras.toFixed(1)}h</p>
+            </div>
+          </div>
+        </Card>
+        <Card>
+          <div className="p-4 flex items-center gap-3">
+            <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
+              <AlarmClock size={18} className="text-red-600" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Atrasos</p>
+              <p className="text-2xl font-bold text-red-600">{atrasos}</p>
             </div>
           </div>
         </Card>
@@ -267,7 +286,7 @@ export function PontoContent() {
                 {registros.map((r) => {
                   const fmt = (d?: string) => d ? new Date(d).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "—";
                   return (
-                    <tr key={r.id} className="hover:bg-gray-50">
+                    <tr key={r.id} className={r.ocorrencia === "ATRASO" ? "bg-red-50 hover:bg-red-100" : r.ocorrencia === "FALTA" ? "bg-red-50/60 hover:bg-red-100/60" : "hover:bg-gray-50"}>
                       <td className="px-4 py-3 text-gray-600 font-mono text-xs whitespace-nowrap">
                         {new Date(r.data).toLocaleDateString("pt-BR")}
                       </td>
@@ -284,7 +303,7 @@ export function PontoContent() {
                       <td className="px-4 py-3">{r.horasExtras ? <span className="text-orange-600 font-semibold">{r.horasExtras}h</span> : "—"}</td>
                       <td className="px-4 py-3">
                         <Badge variant={ocorrenciaVariant[r.ocorrencia ?? "NORMAL"] ?? "secondary"} className="text-xs">
-                          {r.ocorrencia ?? "NORMAL"}
+                          {ocorrenciaLabel[r.ocorrencia ?? "NORMAL"] ?? r.ocorrencia}
                         </Badge>
                       </td>
                     </tr>
