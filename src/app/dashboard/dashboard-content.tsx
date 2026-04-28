@@ -17,7 +17,7 @@ interface DashboardData {
   registrosPontoHoje: number;
 }
 
-const COLORS = ["#ea580c", "#fb923c", "#fed7aa", "#9a3412", "#c2410c", "#fdba74"];
+const COLORS = ["#C41E2E", "#1A1A1A", "#E8293B", "#4B4B4B", "#9B1623", "#6B6B6B"];
 
 function StatCard({
   title, value, sub, icon: Icon, color, trend,
@@ -84,7 +84,7 @@ export function DashboardContent() {
           value={data.totalFuncionarios}
           sub={`${data.funcionariosAtivos} ativos`}
           icon={Users}
-          color="bg-orange-500"
+          color="bg-red-600"
           trend={{ value: data.admissoesMes, label: "admissões este mês" }}
         />
         <StatCard
@@ -92,21 +92,21 @@ export function DashboardContent() {
           value={data.totalRestaurantes}
           sub="Unidades do grupo"
           icon={Building2}
-          color="bg-blue-500"
+          color="bg-gray-900"
         />
         <StatCard
           title="Em Férias"
           value={data.feriasMes}
           sub="Funcionários atualmente"
           icon={Umbrella}
-          color="bg-purple-500"
+          color="bg-red-800"
         />
         <StatCard
           title="Folha do Mês"
           value={formatCurrency(data.folhaMes)}
           sub="Salários líquidos"
           icon={DollarSign}
-          color="bg-green-500"
+          color="bg-green-600"
         />
       </div>
 
@@ -162,7 +162,7 @@ export function DashboardContent() {
                 <Tooltip
                   contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb", fontSize: "12px" }}
                 />
-                <Bar dataKey="total" fill="#ea580c" radius={[4, 4, 0, 0]} name="Funcionários" />
+                <Bar dataKey="total" fill="#C41E2E" radius={[4, 4, 0, 0]} name="Funcionários" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
