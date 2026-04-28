@@ -50,7 +50,7 @@ export function PontoContent() {
   const [afdResult, setAfdResult] = useState<AFDResult | null>(null);
   const [afdError, setAfdError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [filterData, setFilterData] = useState(() => new Date().toISOString().slice(0, 10));
+  const [filterMonth, setFilterMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -67,20 +67,27 @@ export function PontoContent() {
 
   const fetchRegistros = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (filterData) {
-      params.set("dataInicio", filterData);
-      params.set("dataFim", filterData);
-    }
+    const [year, month] = filterMonth.split("-").map(Number);
+    const dataInicio = new Date(year, month - 1, 1).toISOString().slice(0, 10);
+    const dataFim = new Date(year, month, 0).toISOString().slice(0, 10);
+    const params = new URLSearchParams({ dataInicio, dataFim });
     const res = await fetch(`/api/ponto?${params}`);
     const data = await res.json();
     setRegistros(data);
     setLoading(false);
-  }, [filterData]);
+  }, [filterMonth]);
 
   useEffect(() => {
     fetchRegistros();
   }, [fetchRegistros]);
+
+  function changeMonth(delta: number) {
+    const [year, month] = filterMonth.split("-").map(Number);
+    const d = new Date(year, month - 1 + delta, 1);
+    setFilterMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+  }
+
+  const monthLabel = new Date(filterMonth + "-02").toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
   useEffect(() => {
     fetch("/api/funcionarios?status=ATIVO")
@@ -198,13 +205,26 @@ export function PontoContent() {
 
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-        <div className="flex gap-2">
-          <Input
-            type="date"
-            value={filterData}
-            onChange={(e) => setFilterData(e.target.value)}
-            className="w-44"
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => changeMonth(-1)}
+            className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition-colors"
+          >
+            &#8249;
+          </button>
+          <input
+            type="month"
+            value={filterMonth}
+            onChange={(e) => setFilterMonth(e.target.value)}
+            className="flex h-9 rounded-lg border border-gray-200 bg-white px-3 py-1 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-transparent transition-colors capitalize"
           />
+          <button
+            onClick={() => changeMonth(1)}
+            className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition-colors"
+          >
+            &#8250;
+          </button>
+          <span className="text-sm text-gray-500 ml-1 capitalize hidden sm:inline">{monthLabel}</span>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => { setAfdResult(null); setAfdError(""); setAfdModalOpen(true); }}>
@@ -224,13 +244,14 @@ export function PontoContent() {
           </div>
         ) : registros.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 text-gray-400">
-            <p className="font-medium">Nenhum registro para esta data</p>
+            <p className="font-medium">Nenhum registro para este período</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Data</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-600">Funcionário</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-600">Restaurante</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-600">Entrada</th>
@@ -247,6 +268,9 @@ export function PontoContent() {
                   const fmt = (d?: string) => d ? new Date(d).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "—";
                   return (
                     <tr key={r.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-gray-600 font-mono text-xs whitespace-nowrap">
+                        {new Date(r.data).toLocaleDateString("pt-BR")}
+                      </td>
                       <td className="px-4 py-3">
                         <p className="font-medium text-gray-900">{r.funcionario.nome}</p>
                         <p className="text-xs text-gray-400">{r.funcionario.matricula} · {r.funcionario.cargo.nome}</p>
