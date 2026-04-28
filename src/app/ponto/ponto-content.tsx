@@ -58,7 +58,12 @@ export function PontoContent() {
   const [afdResult, setAfdResult] = useState<AFDResult | null>(null);
   const [afdError, setAfdError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [filterMonth, setFilterMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [filterMonth, setFilterMonth] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
   const [view, setView] = useState<"geral" | "colaborador">("geral");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");

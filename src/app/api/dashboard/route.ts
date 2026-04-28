@@ -24,9 +24,11 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
   const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-  const yearStart = new Date(now.getFullYear(), 0, 1);
+  // Ponto is always imported for the previous month
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const lastMonthEnd   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1); // current month (admissões/demissões)
+  const yearStart  = new Date(now.getFullYear(), 0, 1);
 
   const [
     totalFuncionarios,
@@ -59,18 +61,18 @@ export async function GET() {
       where: { ativo: true },
       select: { nome: true, _count: { select: { funcionarios: true } } },
     }),
-    // Ranking: Atrasos no mês
+    // Ranking: Atrasos do mês anterior
     prisma.registroPonto.groupBy({
       by: ["funcionarioId"],
-      where: { ocorrencia: "ATRASO", data: { gte: monthStart, lte: monthEnd } },
+      where: { ocorrencia: "ATRASO", data: { gte: lastMonthStart, lte: lastMonthEnd } },
       _count: { funcionarioId: true },
       orderBy: { _count: { funcionarioId: "desc" } },
       take: 5,
     }),
-    // Ranking: Faltas no mês
+    // Ranking: Faltas do mês anterior
     prisma.registroPonto.groupBy({
       by: ["funcionarioId"],
-      where: { ocorrencia: "FALTA", data: { gte: monthStart, lte: monthEnd } },
+      where: { ocorrencia: "FALTA", data: { gte: lastMonthStart, lte: lastMonthEnd } },
       _count: { funcionarioId: true },
       orderBy: { _count: { funcionarioId: "desc" } },
       take: 5,

@@ -267,20 +267,20 @@ export function DashboardContent() {
           <div className="grid grid-cols-2 xl:grid-cols-4 gap-6 divide-x-0 xl:divide-x divide-gray-100">
             <RankingColumn
               title="Atrasos"
-              subtitle="Mês atual"
+              subtitle="Mês anterior"
               icon={AlarmClock}
               iconColor="bg-red-600"
               items={data.rankingAtrasos}
-              emptyMsg="Nenhum atraso este mês"
+              emptyMsg="Nenhum atraso no mês anterior"
             />
             <div className="xl:pl-6">
               <RankingColumn
                 title="Faltas"
-                subtitle="Mês atual"
+                subtitle="Mês anterior"
                 icon={XCircle}
                 iconColor="bg-rose-700"
                 items={data.rankingFaltas}
-                emptyMsg="Nenhuma falta este mês"
+                emptyMsg="Nenhuma falta no mês anterior"
               />
             </div>
             <div className="xl:pl-6">
