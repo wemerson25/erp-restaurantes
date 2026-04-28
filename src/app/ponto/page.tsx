@@ -12,7 +12,7 @@ export default async function PontoPage() {
       <Sidebar />
       <div className="flex-1 flex flex-col lg:ml-60">
         <Header title="Controle de Ponto" subtitle="Registros de entrada e saída" user={session} />
-        <main className="flex-1 p-6"><PontoContent /></main>
+        <main className="flex-1 p-3 sm:p-6"><PontoContent /></main>
       </div>
     </div>
   );

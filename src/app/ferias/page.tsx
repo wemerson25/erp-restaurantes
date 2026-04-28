@@ -12,7 +12,7 @@ export default async function FeriasPage() {
       <Sidebar />
       <div className="flex-1 flex flex-col lg:ml-60">
         <Header title="Férias" subtitle="Agendamento e controle de férias" user={session} />
-        <main className="flex-1 p-6"><FeriasContent /></main>
+        <main className="flex-1 p-3 sm:p-6"><FeriasContent /></main>
       </div>
     </div>
   );

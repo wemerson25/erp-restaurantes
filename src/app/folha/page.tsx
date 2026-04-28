@@ -12,7 +12,7 @@ export default async function FolhaPage() {
       <Sidebar />
       <div className="flex-1 flex flex-col lg:ml-60">
         <Header title="Folha de Pagamento" subtitle="Cálculo e gestão de salários" user={session} />
-        <main className="flex-1 p-6"><FolhaContent /></main>
+        <main className="flex-1 p-3 sm:p-6"><FolhaContent /></main>
       </div>
     </div>
   );

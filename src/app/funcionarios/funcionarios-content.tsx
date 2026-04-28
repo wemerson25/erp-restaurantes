@@ -115,77 +115,99 @@ export function FuncionariosContent() {
             <p className="text-sm">Cadastre o primeiro funcionário clicando em &quot;Novo Funcionário&quot;</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Matricula / Nome</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Cargo</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Restaurante</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Turno</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Admissão</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Salário</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Status</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-600">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {funcionarios.map((f) => (
-                  <tr key={f.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3">
-                      <div>
-                        <p className="font-semibold text-gray-900">{f.nome}</p>
-                        <p className="text-xs text-gray-400">{f.matricula} · {formatCPF(f.cpf)}</p>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div>
-                        <p className="text-gray-700">{f.cargo.nome}</p>
-                        <p className="text-xs text-gray-400">{f.cargo.departamento}</p>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-700">{f.restaurante.nome}</td>
-                    <td className="px-4 py-3 text-gray-600">{turnoLabel[f.turno] ?? f.turno}</td>
-                    <td className="px-4 py-3 text-gray-600">{formatDate(f.dataAdmissao)}</td>
-                    <td className="px-4 py-3 font-medium text-gray-900">{formatCurrency(f.salario)}</td>
-                    <td className="px-4 py-3">
+          <>
+            {/* Mobile: cards */}
+            <div className="sm:hidden divide-y divide-gray-100">
+              {funcionarios.map((f) => (
+                <div key={f.id} className="p-4 flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold text-gray-900 text-sm">{f.nome}</p>
                       <Badge variant={statusVariant[f.status] ?? "secondary"}>
                         {statusLabel[f.status] ?? f.status}
                       </Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        <Link href={`/funcionarios/${f.id}`}>
-                          <Button size="icon" variant="ghost" title="Ver detalhes">
-                            <Eye size={15} />
-                          </Button>
-                        </Link>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          title="Editar"
-                          onClick={() => { setEditTarget(f); setModalOpen(true); }}
-                        >
-                          <Edit2 size={15} />
-                        </Button>
-                        {f.status !== "DEMITIDO" && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            title="Demitir"
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => handleDemitir(f.id, f.nome)}
-                          >
-                            <UserX size={15} />
-                          </Button>
-                        )}
-                      </div>
-                    </td>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">{f.matricula} · {f.cargo.nome}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{f.restaurante.nome} · {turnoLabel[f.turno] ?? f.turno}</p>
+                    <p className="text-xs font-medium text-gray-700 mt-1">{formatCurrency(f.salario)}</p>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <Link href={`/funcionarios/${f.id}`}>
+                      <Button size="icon" variant="ghost"><Eye size={15} /></Button>
+                    </Link>
+                    <Button size="icon" variant="ghost" onClick={() => { setEditTarget(f); setModalOpen(true); }}>
+                      <Edit2 size={15} />
+                    </Button>
+                    {f.status !== "DEMITIDO" && (
+                      <Button size="icon" variant="ghost" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleDemitir(f.id, f.nome)}>
+                        <UserX size={15} />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop: table */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="px-4 py-3 text-left font-semibold text-gray-600">Matricula / Nome</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-600">Cargo</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-600">Restaurante</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-600">Turno</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-600">Admissão</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-600">Salário</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-600">Status</th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-600">Ações</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {funcionarios.map((f) => (
+                    <tr key={f.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3">
+                        <div>
+                          <p className="font-semibold text-gray-900">{f.nome}</p>
+                          <p className="text-xs text-gray-400">{f.matricula} · {formatCPF(f.cpf)}</p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div>
+                          <p className="text-gray-700">{f.cargo.nome}</p>
+                          <p className="text-xs text-gray-400">{f.cargo.departamento}</p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-gray-700">{f.restaurante.nome}</td>
+                      <td className="px-4 py-3 text-gray-600">{turnoLabel[f.turno] ?? f.turno}</td>
+                      <td className="px-4 py-3 text-gray-600">{formatDate(f.dataAdmissao)}</td>
+                      <td className="px-4 py-3 font-medium text-gray-900">{formatCurrency(f.salario)}</td>
+                      <td className="px-4 py-3">
+                        <Badge variant={statusVariant[f.status] ?? "secondary"}>
+                          {statusLabel[f.status] ?? f.status}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-1">
+                          <Link href={`/funcionarios/${f.id}`}>
+                            <Button size="icon" variant="ghost" title="Ver detalhes"><Eye size={15} /></Button>
+                          </Link>
+                          <Button size="icon" variant="ghost" title="Editar" onClick={() => { setEditTarget(f); setModalOpen(true); }}>
+                            <Edit2 size={15} />
+                          </Button>
+                          {f.status !== "DEMITIDO" && (
+                            <Button size="icon" variant="ghost" title="Demitir" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleDemitir(f.id, f.nome)}>
+                              <UserX size={15} />
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
         {!loading && funcionarios.length > 0 && (
           <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-500">

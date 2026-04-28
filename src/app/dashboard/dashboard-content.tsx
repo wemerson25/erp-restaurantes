@@ -173,15 +173,15 @@ export function DashboardContent() {
             <CardTitle>Distribuição por Unidade</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-6">
-              <ResponsiveContainer width="60%" height={260}>
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              <ResponsiveContainer width="100%" height={220} className="sm:max-w-[55%]">
                 <PieChart>
                   <Pie
                     data={data.funcionariosPorRestaurante}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
+                    innerRadius={55}
+                    outerRadius={90}
                     dataKey="total"
                     nameKey="nome"
                   >
@@ -192,12 +192,12 @@ export function DashboardContent() {
                   <Tooltip contentStyle={{ borderRadius: "8px", fontSize: "12px" }} />
                 </PieChart>
               </ResponsiveContainer>
-              <div className="flex-1 space-y-2">
+              <div className="flex sm:flex-col flex-wrap justify-center gap-x-4 gap-y-2 sm:gap-y-2">
                 {data.funcionariosPorRestaurante.map((r, i) => (
                   <div key={r.nome} className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-gray-700 truncate font-medium">{r.nome}</p>
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-700 font-medium">{r.nome}</p>
                       <p className="text-xs text-gray-400">{r.total} funcionários</p>
                     </div>
                   </div>

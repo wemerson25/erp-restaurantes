@@ -138,56 +138,74 @@ export function FolhaContent() {
             <p className="text-sm">Clique em &ldquo;Gerar Folha&rdquo; para calcular os salários</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Funcionário</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Restaurante</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-600">Bruto</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-600">H. Extras</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-600">INSS</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-600">IRRF</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-600">FGTS</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-600 text-green-700">Líquido</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Status</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-600">Ação</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {folhas.map((f) => (
-                  <tr key={f.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-gray-900">{f.funcionario.nome}</p>
-                      <p className="text-xs text-gray-400">{f.funcionario.matricula} · {f.funcionario.cargo.nome}</p>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{f.funcionario.restaurante.nome}</td>
-                    <td className="px-4 py-3 text-right text-gray-700">{formatCurrency(f.salarioBruto)}</td>
-                    <td className="px-4 py-3 text-right text-orange-600">{f.valorHorasExtras > 0 ? formatCurrency(f.valorHorasExtras) : "—"}</td>
-                    <td className="px-4 py-3 text-right text-red-600">-{formatCurrency(f.descontoINSS)}</td>
-                    <td className="px-4 py-3 text-right text-red-600">-{formatCurrency(f.descontoIRRF)}</td>
-                    <td className="px-4 py-3 text-right text-purple-600">{formatCurrency(f.valorFGTS)}</td>
-                    <td className="px-4 py-3 text-right font-bold text-green-700">{formatCurrency(f.salarioLiquido)}</td>
-                    <td className="px-4 py-3">
-                      <Badge variant={statusVariant[f.status] as never}>{f.status}</Badge>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {f.status === "PENDENTE" && (
-                        <Button size="sm" variant="outline" onClick={() => atualizarStatus(f.id, "APROVADA")}>
-                          Aprovar
-                        </Button>
-                      )}
-                      {f.status === "APROVADA" && (
-                        <Button size="sm" variant="success" onClick={() => atualizarStatus(f.id, "PAGA")}>
-                          <CheckCircle size={13} /> Pagar
-                        </Button>
-                      )}
-                    </td>
+          <>
+            {/* Mobile: cards */}
+            <div className="sm:hidden divide-y divide-gray-100">
+              {folhas.map((f) => (
+                <div key={f.id} className="p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium text-gray-900 text-sm">{f.funcionario.nome}</p>
+                      <p className="text-xs text-gray-400">{f.funcionario.cargo.nome} · {f.funcionario.restaurante.nome}</p>
+                    </div>
+                    <Badge variant={statusVariant[f.status] as never}>{f.status}</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                    <span className="text-gray-500">Bruto</span><span className="text-right text-gray-700 font-medium">{formatCurrency(f.salarioBruto)}</span>
+                    <span className="text-gray-500">INSS</span><span className="text-right text-red-600">-{formatCurrency(f.descontoINSS)}</span>
+                    <span className="text-gray-500">IRRF</span><span className="text-right text-red-600">-{formatCurrency(f.descontoIRRF)}</span>
+                    <span className="text-gray-500 font-semibold">Líquido</span><span className="text-right text-green-700 font-bold">{formatCurrency(f.salarioLiquido)}</span>
+                  </div>
+                  <div className="flex justify-end">
+                    {f.status === "PENDENTE" && <Button size="sm" variant="outline" onClick={() => atualizarStatus(f.id, "APROVADA")}>Aprovar</Button>}
+                    {f.status === "APROVADA" && <Button size="sm" variant="success" onClick={() => atualizarStatus(f.id, "PAGA")}><CheckCircle size={13} /> Pagar</Button>}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop: table */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="px-4 py-3 text-left font-semibold text-gray-600">Funcionário</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-600">Restaurante</th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-600">Bruto</th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-600">H. Extras</th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-600">INSS</th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-600">IRRF</th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-600">FGTS</th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-600 text-green-700">Líquido</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-600">Status</th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-600">Ação</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {folhas.map((f) => (
+                    <tr key={f.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-gray-900">{f.funcionario.nome}</p>
+                        <p className="text-xs text-gray-400">{f.funcionario.matricula} · {f.funcionario.cargo.nome}</p>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">{f.funcionario.restaurante.nome}</td>
+                      <td className="px-4 py-3 text-right text-gray-700">{formatCurrency(f.salarioBruto)}</td>
+                      <td className="px-4 py-3 text-right text-orange-600">{f.valorHorasExtras > 0 ? formatCurrency(f.valorHorasExtras) : "—"}</td>
+                      <td className="px-4 py-3 text-right text-red-600">-{formatCurrency(f.descontoINSS)}</td>
+                      <td className="px-4 py-3 text-right text-red-600">-{formatCurrency(f.descontoIRRF)}</td>
+                      <td className="px-4 py-3 text-right text-purple-600">{formatCurrency(f.valorFGTS)}</td>
+                      <td className="px-4 py-3 text-right font-bold text-green-700">{formatCurrency(f.salarioLiquido)}</td>
+                      <td className="px-4 py-3"><Badge variant={statusVariant[f.status] as never}>{f.status}</Badge></td>
+                      <td className="px-4 py-3 text-right">
+                        {f.status === "PENDENTE" && <Button size="sm" variant="outline" onClick={() => atualizarStatus(f.id, "APROVADA")}>Aprovar</Button>}
+                        {f.status === "APROVADA" && <Button size="sm" variant="success" onClick={() => atualizarStatus(f.id, "PAGA")}><CheckCircle size={13} /> Pagar</Button>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
         {!loading && folhas.length > 0 && (
           <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">

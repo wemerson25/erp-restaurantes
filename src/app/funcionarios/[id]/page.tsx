@@ -13,7 +13,7 @@ export default async function FuncionarioPage({ params }: { params: Promise<{ id
       <Sidebar />
       <div className="flex-1 flex flex-col lg:ml-60">
         <Header title="Perfil do Funcionário" subtitle="Informações completas" user={session} />
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-3 sm:p-6">
           <FuncionarioDetalhe id={id} />
         </main>
       </div>

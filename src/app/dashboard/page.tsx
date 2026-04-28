@@ -17,7 +17,7 @@ export default async function DashboardPage() {
           subtitle="Visão geral do grupo de restaurantes"
           user={session}
         />
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-3 sm:p-6">
           <DashboardContent />
         </main>
       </div>
