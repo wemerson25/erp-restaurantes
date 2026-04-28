@@ -38,107 +38,90 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex">
-      {/* Painel esquerdo — marca */}
-      <div
-        className="hidden lg:flex lg:w-1/2 flex-col items-center justify-center p-12 relative overflow-hidden"
-        style={{ background: "linear-gradient(135deg, var(--brand-red) 0%, var(--brand-red-dark) 50%, var(--brand-black) 100%)" }}
-      >
-        {/* Círculos decorativos */}
-        <div className="absolute top-0 right-0 w-96 h-96 rounded-full opacity-10" style={{ background: "radial-gradient(circle, white, transparent)", transform: "translate(30%, -30%)" }} />
-        <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full opacity-10" style={{ background: "radial-gradient(circle, white, transparent)", transform: "translate(-30%, 30%)" }} />
+    <div
+      className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden"
+      style={{ background: "linear-gradient(135deg, var(--brand-red-light) 0%, var(--brand-red) 40%, var(--brand-red-dark) 70%, var(--brand-black) 100%)" }}
+    >
+      {/* Círculos decorativos de fundo */}
+      <div className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full pointer-events-none"
+        style={{ background: "radial-gradient(circle, rgba(255,255,255,0.07), transparent 70%)", transform: "translate(20%, -20%)" }} />
+      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] rounded-full pointer-events-none"
+        style={{ background: "radial-gradient(circle, rgba(255,255,255,0.05), transparent 70%)", transform: "translate(-20%, 20%)" }} />
 
-        <div className="relative z-10 text-center">
-          <div className="mb-8 inline-block">
-            <Image
-              src="/logo-ykedin-transparent.png"
-              alt="Grupo Ykedin"
-              width={260}
-              height={95}
-              className="object-contain"
-              style={{ filter: "brightness(0) invert(1)" }}
-              priority
-            />
-          </div>
-          <h2 className="text-white text-3xl font-bold mb-3">Grupo Ykedin</h2>
-          <p className="text-red-200 text-lg">Sistema de RH & Gestão</p>
-          <div className="mt-10 flex flex-col gap-3 text-left">
-            {["Gestão de Funcionários", "Controle de Férias", "Folha de Pagamento", "Atestados & Faltas"].map(item => (
-              <div key={item} className="flex items-center gap-3 text-white/80 text-sm">
-                <div className="w-1.5 h-1.5 bg-red-300 rounded-full flex-shrink-0" />
-                {item}
-              </div>
-            ))}
-          </div>
-        </div>
+      {/* Logo */}
+      <div className="relative z-10 mb-8">
+        <Image
+          src="/logo-ykedin-transparent.png"
+          alt="Grupo Ykedin"
+          width={320}
+          height={116}
+          className="object-contain"
+          style={{ filter: "brightness(0) invert(1)" }}
+          priority
+        />
       </div>
 
-      {/* Painel direito — formulário */}
-      <div className="flex-1 flex items-center justify-center p-6 bg-gray-50">
-        <div className="w-full max-w-md">
-          {/* Logo mobile */}
-          <div className="lg:hidden text-center mb-8">
-            <Image src="/logo-ykedin-transparent.png" alt="Grupo Ykedin" width={200} height={72} className="object-contain" priority />
-          </div>
+      {/* Card do formulário */}
+      <div className="relative z-10 w-full max-w-sm">
+        <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 overflow-hidden">
+          <div className="px-8 py-8">
+            <h1 className="text-2xl font-bold text-white mb-1">Bem-vindo!</h1>
+            <p className="text-red-200 text-sm mb-7">Entre com suas credenciais de acesso</p>
 
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-            {/* Faixa vermelha no topo */}
-            <div className="h-1.5 w-full" style={{ background: "linear-gradient(to right, var(--brand-red), var(--brand-black))" }} />
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-white/90 mb-1.5">E-mail</label>
+                <input
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                  className="flex h-10 w-full rounded-lg border border-white/30 bg-white/10 px-3 py-1 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-transparent transition-colors"
+                />
+              </div>
 
-            <div className="px-8 py-8">
-              <h1 className="text-2xl font-bold text-gray-900 mb-1">Bem-vindo!</h1>
-              <p className="text-gray-400 text-sm mb-7">Entre com suas credenciais de acesso</p>
-
-              <form onSubmit={handleSubmit} className="space-y-5">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">E-mail</label>
-                  <Input
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+              <div>
+                <label className="block text-sm font-medium text-white/90 mb-1.5">Senha</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     required
-                    autoComplete="email"
+                    autoComplete="current-password"
+                    className="flex h-10 w-full rounded-lg border border-white/30 bg-white/10 px-3 py-1 pr-10 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-transparent transition-colors"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Senha</label>
-                  <div className="relative">
-                    <Input
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      autoComplete="current-password"
-                      className="pr-10"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
+              {error && (
+                <div className="bg-black/30 border border-red-300/30 rounded-lg px-4 py-3 text-sm text-red-200">
+                  {error}
                 </div>
+              )}
 
-                {error && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
-                    {error}
-                  </div>
-                )}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full h-11 rounded-lg bg-white text-red-700 font-bold text-sm hover:bg-red-50 transition-colors disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2"
+              >
+                {loading ? <><Loader2 size={16} className="animate-spin" /> Entrando...</> : "Entrar no Sistema"}
+              </button>
+            </form>
 
-                <Button type="submit" className="w-full h-11 text-base" disabled={loading}>
-                  {loading ? <><Loader2 size={16} className="animate-spin" /> Entrando...</> : "Entrar no Sistema"}
-                </Button>
-              </form>
-
-              <p className="mt-6 text-center text-xs text-gray-400">
-                Problemas de acesso? Contate o administrador.
-              </p>
-            </div>
+            <p className="mt-6 text-center text-xs text-white/40">
+              Problemas de acesso? Contate o administrador.
+            </p>
           </div>
         </div>
       </div>
