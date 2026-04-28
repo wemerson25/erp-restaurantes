@@ -78,11 +78,14 @@ export async function POST(req: NextRequest) {
     // Ensure even number of punches (drop last if odd — incomplete pair)
     const paired = dates.length % 2 === 0 ? dates : dates.slice(0, -1);
 
-    const entrada   = paired[0] ?? null;
-    // Store first exit and last entry in the two middle fields for display
-    const saidaAlmoco    = paired.length >= 2 ? paired[1] : null;
-    const retornoAlmoco  = paired.length >= 4 ? paired[paired.length - 2] : null;
-    const saida          = paired.length >= 2 ? paired[paired.length - 1] : null;
+    // Map to DB fields: entrada=first, saida=last
+    // saidaAlmoco/retornoAlmoco = middle-pair boundary (meal break)
+    // n=2: no meal; n=4: meal=(p1,p2); n=6: meal=(p3,p4)
+    const n = paired.length;
+    const entrada       = paired[0] ?? null;
+    const saidaAlmoco   = n >= 4 ? paired[n - 3] : null;
+    const retornoAlmoco = n >= 4 ? paired[n - 2] : null;
+    const saida         = n >= 2 ? paired[n - 1] : null;
 
     const horasTrabalhadas = calcHoursFromPunches(paired);
     const horasExtras = Math.max(0, horasTrabalhadas - 8);

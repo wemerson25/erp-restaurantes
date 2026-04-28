@@ -41,34 +41,40 @@ export async function POST(req: NextRequest) {
 
   const data = await req.json();
 
-  // New format: batidas[] = ISO datetime strings (1 per punch)
+  // Parse work block punches
   const batidas: string[] = (data.batidas ?? []).filter(Boolean);
-
   let punchDates: Date[] = [];
-  let entrada: Date | null = null;
-  let saidaAlmoco: Date | null = null;
-  let retornoAlmoco: Date | null = null;
-  let saida: Date | null = null;
 
   if (batidas.length >= 2) {
     punchDates = batidas.map((b) => new Date(b));
-    entrada = punchDates[0];
-    saidaAlmoco = punchDates[1] ?? null;
-    retornoAlmoco = punchDates.length >= 4 ? punchDates[punchDates.length - 2] : null;
-    saida = punchDates[punchDates.length - 1];
   } else {
     // Legacy 4-field format
-    entrada = data.entrada ? new Date(data.entrada) : null;
-    saidaAlmoco = data.saidaAlmoco ? new Date(data.saidaAlmoco) : null;
-    retornoAlmoco = data.retornoAlmoco ? new Date(data.retornoAlmoco) : null;
-    saida = data.saida ? new Date(data.saida) : null;
-    punchDates = [entrada, saidaAlmoco, retornoAlmoco, saida].filter(Boolean) as Date[];
+    const fields = [data.entrada, data.saidaAlmoco, data.retornoAlmoco, data.saida].filter(Boolean);
+    punchDates = fields.map((f) => new Date(f));
   }
 
-  // Ensure even number of punches for correct calculation
   const paired = punchDates.length % 2 === 0 ? punchDates : punchDates.slice(0, -1);
-  const horasTrabalhadas = calcHoursFromPunches(paired);
+  const n = paired.length;
+
+  // Explicit meal break (from form)
+  const refeicaoSaida = data.refeicao?.saida ? new Date(data.refeicao.saida) : null;
+  const refeicaoRetorno = data.refeicao?.retorno ? new Date(data.refeicao.retorno) : null;
+
+  // Hours: sum all work pairs, subtract meal break if provided
+  let horasTrabalhadas = calcHoursFromPunches(paired);
+  if (refeicaoSaida && refeicaoRetorno) {
+    const mealH = (refeicaoRetorno.getTime() - refeicaoSaida.getTime()) / 3600000;
+    horasTrabalhadas = Math.max(0, Math.round((horasTrabalhadas - mealH) * 100) / 100);
+  }
   const horasExtras = Math.max(0, horasTrabalhadas - 8);
+
+  // DB field mapping
+  // entrada = first punch, saida = last punch
+  // saidaAlmoco / retornoAlmoco = explicit meal break OR middle-pair boundary
+  const entrada = paired[0] ?? null;
+  const saida = n >= 2 ? paired[n - 1] : null;
+  const saidaAlmoco = refeicaoSaida ?? (n >= 4 ? paired[n - 3] : null);
+  const retornoAlmoco = refeicaoRetorno ?? (n >= 4 ? paired[n - 2] : null);
 
   const dataDate = new Date(data.data);
   const ocorrencia = data.ocorrencia && data.ocorrencia !== "NORMAL"

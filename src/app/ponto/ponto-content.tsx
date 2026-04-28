@@ -73,6 +73,7 @@ export function PontoContent() {
     { entrada: "", saida: "" },
     { entrada: "", saida: "" },
   ]);
+  const [refeicao, setRefeicao] = useState({ enabled: false, saida: "", retorno: "" });
 
   const fetchRegistros = useCallback(async () => {
     setLoading(true);
@@ -132,6 +133,7 @@ export function PontoContent() {
   function resetModal() {
     setForm({ funcionarioId: "", data: new Date().toISOString().slice(0, 10), ocorrencia: "NORMAL", justificativa: "" });
     setPares([{ entrada: "", saida: "" }, { entrada: "", saida: "" }]);
+    setRefeicao({ enabled: false, saida: "", retorno: "" });
     setError("");
   }
 
@@ -151,6 +153,9 @@ export function PontoContent() {
         funcionarioId: form.funcionarioId,
         data: form.data,
         batidas,
+        refeicao: refeicao.enabled && refeicao.saida && refeicao.retorno
+          ? { saida: `${form.data}T${refeicao.saida}:00`, retorno: `${form.data}T${refeicao.retorno}:00` }
+          : undefined,
         ocorrencia: form.ocorrencia,
         justificativa: form.justificativa || undefined,
       };
@@ -307,11 +312,11 @@ export function PontoContent() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {registros.map((r) => {
-                  const fmt = (d?: string) => d ? new Date(d).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "—";
+                  const fmt = (d?: string) => d ? new Date(d).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" }) : "—";
                   return (
                     <tr key={r.id} className={r.ocorrencia === "ATRASO" ? "bg-red-50 hover:bg-red-100" : r.ocorrencia === "FALTA" ? "bg-red-50/60 hover:bg-red-100/60" : "hover:bg-gray-50"}>
                       <td className="px-4 py-3 text-gray-600 font-mono text-xs whitespace-nowrap">
-                        {new Date(r.data).toLocaleDateString("pt-BR")}
+                        {new Date(r.data).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
                       </td>
                       <td className="px-4 py-3">
                         <p className="font-medium text-gray-900">{r.funcionario.nome}</p>
@@ -482,6 +487,31 @@ export function PontoContent() {
               >
                 <Plus size={13} /> Adicionar par de batidas
               </button>
+            )}
+          </div>
+
+          {/* Intervalo de Refeição */}
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={refeicao.enabled}
+                onChange={(e) => setRefeicao((r) => ({ ...r, enabled: e.target.checked }))}
+                className="rounded border-gray-300 text-red-600 focus:ring-red-600"
+              />
+              <span className="text-xs font-medium text-gray-600">Registrar intervalo de refeição</span>
+            </label>
+            {refeicao.enabled && (
+              <div className="grid grid-cols-2 gap-2 pl-5">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Saída p/ Refeição</label>
+                  <Input type="time" value={refeicao.saida} onChange={(e) => setRefeicao((r) => ({ ...r, saida: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Retorno</label>
+                  <Input type="time" value={refeicao.retorno} onChange={(e) => setRefeicao((r) => ({ ...r, retorno: e.target.value }))} />
+                </div>
+              </div>
             )}
           </div>
 

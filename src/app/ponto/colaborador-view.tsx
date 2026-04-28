@@ -135,7 +135,7 @@ export function ColaboradorView({ funcionarios, filterMonth }: Props) {
   const days = getDaysInMonth(filterMonth);
 
   const fmt = (iso?: string) =>
-    iso ? new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "—";
+    iso ? new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" }) : "—";
 
   // Summary calculations
   const pontoDias = data?.registros.filter((r) => r.ocorrencia !== "FALTA").length ?? 0;
@@ -243,7 +243,7 @@ export function ColaboradorView({ funcionarios, filterMonth }: Props) {
                     const date = new Date(day + "T12:00:00");
                     const dayOfWeek = DAYS_PT[date.getDay()];
                     const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-                    const dateFormatted = date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+                    const dateFormatted = date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "UTC" });
 
                     if (info.kind === "ponto") {
                       const r = info.registro;
