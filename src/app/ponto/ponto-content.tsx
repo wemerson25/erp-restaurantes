@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Plus, Loader2, Clock, Upload, CheckCircle2, AlertCircle, AlarmClock } from "lucide-react";
+import { ColaboradorView } from "./colaborador-view";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -58,6 +59,7 @@ export function PontoContent() {
   const [afdError, setAfdError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [filterMonth, setFilterMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [view, setView] = useState<"geral" | "colaborador">("geral");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -174,6 +176,42 @@ export function PontoContent() {
 
   return (
     <div className="space-y-4">
+      {/* Tabs + Month filter */}
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+        <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+          {(["geral", "colaborador"] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                view === v ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {v === "geral" ? "Visão Geral" : "Por Colaborador"}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-1">
+          <button onClick={() => changeMonth(-1)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition-colors">&#8249;</button>
+          <input
+            type="month"
+            value={filterMonth}
+            onChange={(e) => setFilterMonth(e.target.value)}
+            className="flex h-9 rounded-lg border border-gray-200 bg-white px-3 py-1 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-transparent transition-colors"
+          />
+          <button onClick={() => changeMonth(1)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition-colors">&#8250;</button>
+          <span className="text-sm text-gray-500 ml-1 capitalize hidden sm:inline">{monthLabel}</span>
+        </div>
+      </div>
+
+      {/* Colaborador view */}
+      {view === "colaborador" && (
+        <ColaboradorView funcionarios={funcionarios} filterMonth={filterMonth} />
+      )}
+
+      {/* Geral view */}
+      {view === "geral" && <>
+
       {/* Stats do período */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Card>
@@ -224,27 +262,7 @@ export function PontoContent() {
 
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => changeMonth(-1)}
-            className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition-colors"
-          >
-            &#8249;
-          </button>
-          <input
-            type="month"
-            value={filterMonth}
-            onChange={(e) => setFilterMonth(e.target.value)}
-            className="flex h-9 rounded-lg border border-gray-200 bg-white px-3 py-1 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-transparent transition-colors capitalize"
-          />
-          <button
-            onClick={() => changeMonth(1)}
-            className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition-colors"
-          >
-            &#8250;
-          </button>
-          <span className="text-sm text-gray-500 ml-1 capitalize hidden sm:inline">{monthLabel}</span>
-        </div>
+        <div>{/* spacer */}</div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => { setAfdResult(null); setAfdError(""); setAfdModalOpen(true); }}>
             <Upload size={16} /> Importar AFD
@@ -321,6 +339,9 @@ export function PontoContent() {
           </div>
         )}
       </Card>
+
+      {/* end geral view */}
+      </>}
 
       {/* AFD Import Modal */}
       <Modal open={afdModalOpen} onClose={() => setAfdModalOpen(false)} title="Importar Arquivo AFD" size="sm">
