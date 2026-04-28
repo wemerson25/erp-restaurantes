@@ -1,0 +1,193 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   @default("RH")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Restaurante {
+  id           String        @id @default(cuid())
+  nome         String
+  cnpj         String        @unique
+  endereco     String
+  cidade       String
+  estado       String
+  telefone     String?
+  email        String?
+  ativo        Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  funcionarios Funcionario[]
+  vagas        Vaga[]
+}
+
+model Cargo {
+  id           String        @id @default(cuid())
+  nome         String
+  descricao    String?
+  salarioBase  Float
+  departamento String
+  funcionarios Funcionario[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Funcionario {
+  id             String           @id @default(cuid())
+  matricula      String           @unique
+  nome           String
+  cpf            String           @unique
+  rg             String?
+  dataNascimento DateTime
+  sexo           String
+  estadoCivil    String
+  email          String?
+  telefone       String
+  endereco       String
+  cidade         String
+  estado         String
+  cep            String
+  dataAdmissao   DateTime
+  dataDemissao   DateTime?
+  salario        Float
+  tipoContrato   String           @default("CLT")
+  status         String           @default("ATIVO")
+  turno          String           @default("MANHA")
+  ctps           String?
+  pisPassep      String?
+  observacoes    String?
+  restauranteId  String
+  cargoId        String
+  restaurante    Restaurante      @relation(fields: [restauranteId], references: [id])
+  cargo          Cargo            @relation(fields: [cargoId], references: [id])
+  registrosPonto RegistroPonto[]
+  ferias         Ferias[]
+  folhas         FolhaPagamento[]
+  advertencias   Advertencia[]
+  ausencias      Ausencia[]
+  candidatura    Candidatura?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+}
+
+model RegistroPonto {
+  id               String      @id @default(cuid())
+  funcionarioId    String
+  data             DateTime
+  entrada          DateTime?
+  saidaAlmoco      DateTime?
+  retornoAlmoco    DateTime?
+  saida            DateTime?
+  horasTrabalhadas Float?
+  horasExtras      Float?
+  ocorrencia       String?
+  justificativa    String?
+  funcionario      Funcionario @relation(fields: [funcionarioId], references: [id])
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+}
+
+model Ferias {
+  id            String      @id @default(cuid())
+  funcionarioId String
+  dataInicio    DateTime
+  dataFim       DateTime
+  diasCorridos  Int
+  diasVendidos  Int         @default(0)
+  status        String      @default("AGENDADA")
+  observacoes   String?
+  funcionario   Funcionario @relation(fields: [funcionarioId], references: [id])
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model FolhaPagamento {
+  id               String      @id @default(cuid())
+  funcionarioId    String
+  competencia      String
+  salarioBruto     Float
+  horasExtras      Float       @default(0)
+  valorHorasExtras Float       @default(0)
+  descontoINSS     Float       @default(0)
+  descontoIRRF     Float       @default(0)
+  valorFGTS        Float       @default(0)
+  outrosDescontos  Float       @default(0)
+  outrosBeneficios Float       @default(0)
+  salarioLiquido   Float
+  status           String      @default("PENDENTE")
+  observacoes      String?
+  funcionario      Funcionario @relation(fields: [funcionarioId], references: [id])
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+}
+
+model Advertencia {
+  id            String      @id @default(cuid())
+  funcionarioId String
+  tipo          String
+  motivo        String
+  descricao     String
+  data          DateTime
+  funcionario   Funcionario @relation(fields: [funcionarioId], references: [id])
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model Vaga {
+  id            String        @id @default(cuid())
+  titulo        String
+  descricao     String
+  requisitos    String
+  salario       Float?
+  tipoContrato  String
+  restauranteId String
+  status        String        @default("ABERTA")
+  restaurante   Restaurante   @relation(fields: [restauranteId], references: [id])
+  candidaturas  Candidatura[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model Ausencia {
+  id              String      @id @default(cuid())
+  funcionarioId   String
+  tipo            String
+  dataInicio      DateTime
+  dataFim         DateTime
+  diasAfastamento Int
+  motivo          String?
+  descricao       String?
+  status          String      @default("PENDENTE")
+  observacoes     String?
+  funcionario     Funcionario @relation(fields: [funcionarioId], references: [id])
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model Candidatura {
+  id            String       @id @default(cuid())
+  vagaId        String
+  funcionarioId String?      @unique
+  nome          String
+  email         String
+  telefone      String
+  cpf           String
+  curriculo     String?
+  status        String       @default("PENDENTE")
+  observacoes   String?
+  vaga          Vaga         @relation(fields: [vagaId], references: [id])
+  funcionario   Funcionario? @relation(fields: [funcionarioId], references: [id])
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
