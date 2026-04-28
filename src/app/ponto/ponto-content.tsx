@@ -64,7 +64,7 @@ export function PontoContent() {
     d.setMonth(d.getMonth() - 1);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
-  const [view, setView] = useState<"geral" | "colaborador">("geral");
+  const [view, setView] = useState<"geral" | "colaborador">("colaborador");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
