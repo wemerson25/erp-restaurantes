@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
-import { Plus, Loader2, Clock } from "lucide-react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { Plus, Loader2, Clock, Upload, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -33,11 +33,23 @@ const ocorrenciaVariant: Record<string, "success" | "warning" | "destructive" | 
   SAIDA_ANTECIPADA: "warning",
 };
 
+interface AFDResult {
+  imported: number;
+  updated: number;
+  total: number;
+  unmatched: string[];
+}
+
 export function PontoContent() {
   const [registros, setRegistros] = useState<Registro[]>([]);
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [afdModalOpen, setAfdModalOpen] = useState(false);
+  const [afdLoading, setAfdLoading] = useState(false);
+  const [afdResult, setAfdResult] = useState<AFDResult | null>(null);
+  const [afdError, setAfdError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [filterData, setFilterData] = useState(() => new Date().toISOString().slice(0, 10));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -79,6 +91,31 @@ export function PontoContent() {
   function toDateTime(date: string, time: string): string | undefined {
     if (!time) return undefined;
     return `${date}T${time}:00`;
+  }
+
+  async function handleAFDImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAfdError("");
+    setAfdResult(null);
+    setAfdLoading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/ponto/afd", { method: "POST", body: form });
+      const data = await res.json();
+      if (!res.ok) {
+        setAfdError(data.error ?? "Erro ao importar AFD");
+        return;
+      }
+      setAfdResult(data);
+      fetchRegistros();
+    } catch {
+      setAfdError("Erro de conexão");
+    } finally {
+      setAfdLoading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -169,9 +206,14 @@ export function PontoContent() {
             className="w-44"
           />
         </div>
-        <Button onClick={() => setModalOpen(true)}>
-          <Plus size={16} /> Registrar Ponto
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => { setAfdResult(null); setAfdError(""); setAfdModalOpen(true); }}>
+            <Upload size={16} /> Importar AFD
+          </Button>
+          <Button onClick={() => setModalOpen(true)}>
+            <Plus size={16} /> Registrar Ponto
+          </Button>
+        </div>
       </div>
 
       {/* Table */}
@@ -237,7 +279,75 @@ export function PontoContent() {
         )}
       </Card>
 
-      {/* Modal */}
+      {/* AFD Import Modal */}
+      <Modal open={afdModalOpen} onClose={() => setAfdModalOpen(false)} title="Importar Arquivo AFD" size="sm">
+        <div className="p-6 space-y-4">
+          <p className="text-sm text-gray-500">
+            Importe um arquivo AFD (Portaria MTE 1510) para registrar automaticamente os pontos dos funcionários.
+            O sistema busca os colaboradores pelo PIS/PASEP cadastrado.
+          </p>
+
+          <div
+            className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center cursor-pointer hover:border-red-300 hover:bg-red-50/30 transition-colors"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {afdLoading ? (
+              <div className="flex flex-col items-center gap-2 text-gray-500">
+                <Loader2 size={28} className="animate-spin text-red-500" />
+                <span className="text-sm font-medium">Processando arquivo...</span>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2 text-gray-400">
+                <Upload size={28} />
+                <span className="text-sm font-medium">Clique para selecionar o arquivo AFD</span>
+                <span className="text-xs">.txt ou .afd</span>
+              </div>
+            )}
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".txt,.afd,text/plain"
+            className="hidden"
+            onChange={handleAFDImport}
+            disabled={afdLoading}
+          />
+
+          {afdError && (
+            <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+              <AlertCircle size={16} className="mt-0.5 shrink-0" />
+              {afdError}
+            </div>
+          )}
+
+          {afdResult && (
+            <div className="space-y-3">
+              <div className="flex items-start gap-2 bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-800">
+                <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-semibold">{afdResult.total} registro(s) processado(s)</p>
+                  <p className="text-xs text-green-700 mt-0.5">
+                    {afdResult.imported} criado(s) · {afdResult.updated} atualizado(s)
+                  </p>
+                </div>
+              </div>
+              {afdResult.unmatched.length > 0 && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 text-sm text-yellow-800">
+                  <p className="font-semibold mb-1">{afdResult.unmatched.length} PIS não encontrado(s):</p>
+                  <p className="text-xs font-mono break-all">{afdResult.unmatched.join(", ")}</p>
+                  <p className="text-xs mt-1 text-yellow-700">Verifique se o PIS/PASEP está cadastrado no funcionário.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex justify-end pt-2 border-t">
+            <Button variant="outline" onClick={() => setAfdModalOpen(false)}>Fechar</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Manual Registration Modal */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Registrar Ponto" size="md">
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
