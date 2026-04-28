@@ -51,12 +51,12 @@ export default function LoginPage() {
         <div className="relative z-10 text-center">
           <div className="mb-8 inline-block">
             <Image
-              src="/logo-ykedin.png"
+              src="/logo-ykedin-transparent.png"
               alt="Grupo Ykedin"
-              width={240}
-              height={88}
+              width={260}
+              height={95}
               className="object-contain"
-              style={{ mixBlendMode: "multiply", filter: "brightness(0) invert(1)" }}
+              style={{ filter: "brightness(0) invert(1)" }}
               priority
             />
           </div>
@@ -78,9 +78,7 @@ export default function LoginPage() {
         <div className="w-full max-w-md">
           {/* Logo mobile */}
           <div className="lg:hidden text-center mb-8">
-            <div className="inline-block bg-white rounded-2xl p-4 shadow-lg border border-gray-100">
-              <Image src="/logo-ykedin.png" alt="Grupo Ykedin" width={180} height={65} className="object-contain" priority />
-            </div>
+            <Image src="/logo-ykedin-transparent.png" alt="Grupo Ykedin" width={200} height={72} className="object-contain" priority />
           </div>
 
           <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">

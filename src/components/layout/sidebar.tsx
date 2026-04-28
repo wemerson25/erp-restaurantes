@@ -33,18 +33,17 @@ export function Sidebar() {
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="px-5 py-5 border-b border-white/10">
-        <div className="bg-white rounded-xl px-3 py-2.5 flex items-center justify-center shadow-lg">
-          <Image
-            src="/logo-ykedin.png"
-            alt="Grupo Ykedin"
-            width={148}
-            height={52}
-            className="object-contain"
-            priority
-          />
-        </div>
-        <p className="text-red-200 text-xs mt-2.5 text-center font-medium tracking-wide">
+      <div className="px-5 py-5 border-b border-white/10 flex flex-col items-center">
+        <Image
+          src="/logo-ykedin-transparent.png"
+          alt="Grupo Ykedin"
+          width={148}
+          height={52}
+          className="object-contain"
+          style={{ filter: "brightness(0) invert(1)" }}
+          priority
+        />
+        <p className="text-red-200 text-xs mt-2 text-center font-medium tracking-wide">
           RH & GESTÃO
         </p>
       </div>
