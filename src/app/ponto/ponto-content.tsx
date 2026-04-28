@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Plus, Loader2, Clock, Upload, CheckCircle2, AlertCircle, AlarmClock } from "lucide-react";
+import { Plus, Loader2, Clock, Upload, CheckCircle2, AlertCircle, AlarmClock, Trash2 } from "lucide-react";
 import { ColaboradorView } from "./colaborador-view";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,13 +66,13 @@ export function PontoContent() {
   const [form, setForm] = useState({
     funcionarioId: "",
     data: new Date().toISOString().slice(0, 10),
-    entrada: "",
-    saidaAlmoco: "",
-    retornoAlmoco: "",
-    saida: "",
     ocorrencia: "NORMAL",
     justificativa: "",
   });
+  const [pares, setPares] = useState([
+    { entrada: "", saida: "" },
+    { entrada: "", saida: "" },
+  ]);
 
   const fetchRegistros = useCallback(async () => {
     setLoading(true);
@@ -104,11 +104,6 @@ export function PontoContent() {
       .then(setFuncionarios);
   }, []);
 
-  function toDateTime(date: string, time: string): string | undefined {
-    if (!time) return undefined;
-    return `${date}T${time}:00`;
-  }
-
   async function handleAFDImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -134,18 +129,28 @@ export function PontoContent() {
     }
   }
 
+  function resetModal() {
+    setForm({ funcionarioId: "", data: new Date().toISOString().slice(0, 10), ocorrencia: "NORMAL", justificativa: "" });
+    setPares([{ entrada: "", saida: "" }, { entrada: "", saida: "" }]);
+    setError("");
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setSaving(true);
     try {
+      const batidas = pares
+        .flatMap((p) => [
+          p.entrada ? `${form.data}T${p.entrada}:00` : null,
+          p.saida ? `${form.data}T${p.saida}:00` : null,
+        ])
+        .filter(Boolean) as string[];
+
       const body = {
         funcionarioId: form.funcionarioId,
         data: form.data,
-        entrada: toDateTime(form.data, form.entrada),
-        saidaAlmoco: toDateTime(form.data, form.saidaAlmoco),
-        retornoAlmoco: toDateTime(form.data, form.retornoAlmoco),
-        saida: toDateTime(form.data, form.saida),
+        batidas,
         ocorrencia: form.ocorrencia,
         justificativa: form.justificativa || undefined,
       };
@@ -160,7 +165,7 @@ export function PontoContent() {
         return;
       }
       setModalOpen(false);
-      setForm({ funcionarioId: "", data: new Date().toISOString().slice(0, 10), entrada: "", saidaAlmoco: "", retornoAlmoco: "", saida: "", ocorrencia: "NORMAL", justificativa: "" });
+      resetModal();
       fetchRegistros();
     } catch {
       setError("Erro de conexão");
@@ -412,7 +417,7 @@ export function PontoContent() {
       </Modal>
 
       {/* Manual Registration Modal */}
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Registrar Ponto" size="md">
+      <Modal open={modalOpen} onClose={() => { setModalOpen(false); resetModal(); }} title="Registrar Ponto" size="md">
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Funcionário *</label>
@@ -427,24 +432,59 @@ export function PontoContent() {
             <label className="block text-xs font-medium text-gray-600 mb-1">Data *</label>
             <Input type="date" value={form.data} onChange={(e) => setForm((p) => ({ ...p, data: e.target.value }))} required />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Entrada</label>
-              <Input type="time" value={form.entrada} onChange={(e) => setForm((p) => ({ ...p, entrada: e.target.value }))} />
+
+          {/* Pares de batidas dinâmicos */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-gray-600">Batidas</label>
+              <span className="text-xs text-gray-400">{pares.length * 2} campos</span>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Saída Almoço</label>
-              <Input type="time" value={form.saidaAlmoco} onChange={(e) => setForm((p) => ({ ...p, saidaAlmoco: e.target.value }))} />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Retorno Almoço</label>
-              <Input type="time" value={form.retornoAlmoco} onChange={(e) => setForm((p) => ({ ...p, retornoAlmoco: e.target.value }))} />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Saída</label>
-              <Input type="time" value={form.saida} onChange={(e) => setForm((p) => ({ ...p, saida: e.target.value }))} />
-            </div>
+            {pares.map((par, i) => (
+              <div key={i} className="grid grid-cols-2 gap-2 items-end">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    {i === 0 ? "Entrada" : i === 1 ? "2ª Entrada" : "3ª Entrada"}
+                  </label>
+                  <Input
+                    type="time"
+                    value={par.entrada}
+                    onChange={(e) => setPares((prev) => prev.map((p, j) => j === i ? { ...p, entrada: e.target.value } : p))}
+                  />
+                </div>
+                <div className="flex gap-1.5 items-end">
+                  <div className="flex-1">
+                    <label className="block text-xs text-gray-500 mb-1">
+                      {i === 0 ? "Saída" : i === 1 ? "2ª Saída" : "3ª Saída"}
+                    </label>
+                    <Input
+                      type="time"
+                      value={par.saida}
+                      onChange={(e) => setPares((prev) => prev.map((p, j) => j === i ? { ...p, saida: e.target.value } : p))}
+                    />
+                  </div>
+                  {i >= 2 && (
+                    <button
+                      type="button"
+                      onClick={() => setPares((prev) => prev.filter((_, j) => j !== i))}
+                      className="h-10 px-2 text-gray-400 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+            {pares.length < 3 && (
+              <button
+                type="button"
+                onClick={() => setPares((prev) => [...prev, { entrada: "", saida: "" }])}
+                className="flex items-center gap-1.5 text-xs text-red-600 hover:text-red-700 font-medium mt-1 transition-colors"
+              >
+                <Plus size={13} /> Adicionar par de batidas
+              </button>
+            )}
           </div>
+
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Ocorrência</label>
             <Select value={form.ocorrencia} onChange={(e) => setForm((p) => ({ ...p, ocorrencia: e.target.value }))}>
@@ -462,7 +502,7 @@ export function PontoContent() {
           )}
           {error && <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">{error}</div>}
           <div className="flex justify-end gap-3 pt-2 border-t">
-            <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
+            <Button type="button" variant="outline" onClick={() => { setModalOpen(false); resetModal(); }}>Cancelar</Button>
             <Button type="submit" disabled={saving}>
               {saving && <Loader2 size={14} className="animate-spin" />} Registrar
             </Button>
