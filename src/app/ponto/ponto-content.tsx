@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Plus, Loader2, Clock, Upload, CheckCircle2, AlertCircle, AlarmClock, Trash2 } from "lucide-react";
+import { Plus, Loader2, Clock, Upload, CheckCircle2, AlertCircle, AlarmClock, Trash2, FileSpreadsheet, Download } from "lucide-react";
 import { ColaboradorView } from "./colaborador-view";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,6 +58,11 @@ export function PontoContent() {
   const [afdResult, setAfdResult] = useState<AFDResult | null>(null);
   const [afdError, setAfdError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const excelInputRef = useRef<HTMLInputElement>(null);
+  const [excelModalOpen, setExcelModalOpen] = useState(false);
+  const [excelLoading, setExcelLoading] = useState(false);
+  const [excelResult, setExcelResult] = useState<AFDResult | null>(null);
+  const [excelError, setExcelError] = useState("");
   const [filterMonth, setFilterMonth] = useState(() => {
     const d = new Date();
     d.setDate(1);
@@ -109,6 +114,31 @@ export function PontoContent() {
       .then((r) => r.json())
       .then(setFuncionarios);
   }, []);
+
+  async function handleExcelImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setExcelError("");
+    setExcelResult(null);
+    setExcelLoading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/ponto/excel", { method: "POST", body: form });
+      const data = await res.json();
+      if (!res.ok) {
+        setExcelError(data.error ?? "Erro ao importar Excel");
+        return;
+      }
+      setExcelResult(data);
+      fetchRegistros();
+    } catch {
+      setExcelError("Erro de conexão");
+    } finally {
+      setExcelLoading(false);
+      if (excelInputRef.current) excelInputRef.current.value = "";
+    }
+  }
 
   async function handleAFDImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -285,6 +315,9 @@ export function PontoContent() {
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div>{/* spacer */}</div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => { setExcelResult(null); setExcelError(""); setExcelModalOpen(true); }}>
+            <FileSpreadsheet size={16} /> Importar Excel
+          </Button>
           <Button variant="outline" onClick={() => { setAfdResult(null); setAfdError(""); setAfdModalOpen(true); }}>
             <Upload size={16} /> Importar AFD
           </Button>
@@ -373,6 +406,81 @@ export function PontoContent() {
 
       {/* end geral view */}
       </>}
+
+      {/* Excel Import Modal */}
+      <Modal open={excelModalOpen} onClose={() => setExcelModalOpen(false)} title="Importar Excel de Ponto" size="sm">
+        <div className="p-6 space-y-4">
+          <p className="text-sm text-gray-500">
+            Faça upload de uma planilha Excel com as batidas dos funcionários. O sistema identifica os
+            colaboradores pelo <strong>nome</strong> e cria os registros automaticamente.
+          </p>
+
+          <a
+            href="/api/ponto/excel"
+            className="flex items-center gap-2 text-sm text-red-600 hover:text-red-700 font-medium"
+          >
+            <Download size={15} /> Baixar template (.xlsx)
+          </a>
+
+          <div
+            className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center cursor-pointer hover:border-green-400 hover:bg-green-50/30 transition-colors"
+            onClick={() => excelInputRef.current?.click()}
+          >
+            {excelLoading ? (
+              <div className="flex flex-col items-center gap-2 text-gray-500">
+                <Loader2 size={28} className="animate-spin text-green-600" />
+                <span className="text-sm font-medium">Processando planilha...</span>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2 text-gray-400">
+                <FileSpreadsheet size={28} />
+                <span className="text-sm font-medium">Clique para selecionar o arquivo Excel</span>
+                <span className="text-xs">.xlsx ou .xls</span>
+              </div>
+            )}
+          </div>
+          <input
+            ref={excelInputRef}
+            type="file"
+            accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            className="hidden"
+            onChange={handleExcelImport}
+            disabled={excelLoading}
+          />
+
+          {excelError && (
+            <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+              <AlertCircle size={16} className="mt-0.5 shrink-0" />
+              {excelError}
+            </div>
+          )}
+
+          {excelResult && (
+            <div className="space-y-3">
+              <div className="flex items-start gap-2 bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-800">
+                <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-semibold">{excelResult.total} registro(s) processado(s)</p>
+                  <p className="text-xs text-green-700 mt-0.5">
+                    {excelResult.imported} criado(s) · {excelResult.updated} atualizado(s)
+                  </p>
+                </div>
+              </div>
+              {excelResult.unmatched.length > 0 && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 text-sm text-yellow-800">
+                  <p className="font-semibold mb-1">{excelResult.unmatched.length} funcionário(s) não encontrado(s):</p>
+                  <p className="text-xs font-mono break-all">{excelResult.unmatched.join(", ")}</p>
+                  <p className="text-xs mt-1 text-yellow-700">Verifique se o nome na planilha corresponde ao cadastro.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex justify-end pt-2 border-t">
+            <Button variant="outline" onClick={() => setExcelModalOpen(false)}>Fechar</Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* AFD Import Modal */}
       <Modal open={afdModalOpen} onClose={() => setAfdModalOpen(false)} title="Importar Arquivo AFD" size="sm">
