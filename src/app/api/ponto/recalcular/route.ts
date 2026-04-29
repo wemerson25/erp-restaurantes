@@ -10,13 +10,15 @@ export async function POST(req: NextRequest) {
   const { funcionarioId, month } = await req.json() as { funcionarioId: string; month?: string };
   if (!funcionarioId) return NextResponse.json({ error: "funcionarioId obrigatório" }, { status: 400 });
 
-  const where: Parameters<typeof prisma.registroPonto.findMany>[0]["where"] = { funcionarioId };
+  let dataFilter: { gte: Date; lte: Date } | undefined;
   if (month) {
     const [y, m] = month.split("-").map(Number);
-    where.data = { gte: new Date(y, m - 1, 1), lte: new Date(y, m, 0, 23, 59, 59) };
+    dataFilter = { gte: new Date(y, m - 1, 1), lte: new Date(y, m, 0, 23, 59, 59) };
   }
 
-  const registros = await prisma.registroPonto.findMany({ where });
+  const registros = await prisma.registroPonto.findMany({
+    where: { funcionarioId, ...(dataFilter ? { data: dataFilter } : {}) },
+  });
 
   let updated = 0;
   for (const rec of registros) {
