@@ -381,7 +381,7 @@ export async function GET(req: NextRequest) {
   const nomeMes = MONTHS_PT[mon - 1];
   const filename = `cartao_ponto_${func.nome.replace(/\s+/g, "_")}_${nomeMes}_${year}.xlsx`;
 
-  return new NextResponse(buffer as Buffer, {
+  return new NextResponse(new Uint8Array(buffer as ArrayBuffer), {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "Content-Disposition": `attachment; filename="${filename}"`,
