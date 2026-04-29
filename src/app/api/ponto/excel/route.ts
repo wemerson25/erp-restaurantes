@@ -168,6 +168,32 @@ function parseSimpleFormat(rows: unknown[][]): ParsedRecord[] {
   return records;
 }
 
+// ─── Group consecutive dates into spans ─────────────────────────────────────
+
+function groupConsecutiveDates(dates: string[]): { start: string; end: string; days: number }[] {
+  const sorted = [...dates].sort(); // YYYY-MM-DD sorts correctly as strings
+  const spans: { start: string; end: string; days: number }[] = [];
+  let spanStart = sorted[0];
+  let prev = sorted[0];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const diffDays = Math.round(
+      (new Date(sorted[i] + "T12:00:00").getTime() - new Date(prev + "T12:00:00").getTime()) / 86_400_000
+    );
+    if (diffDays === 1) {
+      prev = sorted[i];
+    } else {
+      const days = Math.round((new Date(prev + "T12:00:00").getTime() - new Date(spanStart + "T12:00:00").getTime()) / 86_400_000) + 1;
+      spans.push({ start: spanStart, end: prev, days });
+      spanStart = sorted[i];
+      prev = sorted[i];
+    }
+  }
+  const days = Math.round((new Date(prev + "T12:00:00").getTime() - new Date(spanStart + "T12:00:00").getTime()) / 86_400_000) + 1;
+  spans.push({ start: spanStart, end: prev, days });
+  return spans;
+}
+
 // ─── GET — download blank template ──────────────────────────────────────────
 
 export async function GET() {
@@ -227,12 +253,26 @@ export async function POST(req: NextRequest) {
   const unmatched = new Set<string>();
   const errors: string[] = [];
 
-  for (const rec of records) {
-    const nomeNorm = normalizeName(rec.nomeFuncionario);
-    const funcionario =
-      byName.get(nomeNorm) ??
-      [...byName.entries()].find(([k]) => k.includes(nomeNorm) || nomeNorm.includes(k))?.[1];
+  function resolveFuncionario(nome: string) {
+    const norm = normalizeName(nome);
+    return byName.get(norm) ?? [...byName.entries()].find(([k]) => k.includes(norm) || norm.includes(k))?.[1];
+  }
 
+  // Pre-pass: collect consecutive ATESTADO dates per employee before the main loop
+  const atestadoGroups = new Map<string, { nome: string; dates: string[] }>();
+  for (const rec of records) {
+    if (rec.tipo !== "ATESTADO") continue;
+    const funcionario = resolveFuncionario(rec.nomeFuncionario);
+    if (!funcionario) { unmatched.add(rec.nomeFuncionario); continue; }
+    if (!atestadoGroups.has(funcionario.id)) atestadoGroups.set(funcionario.id, { nome: rec.nomeFuncionario, dates: [] });
+    atestadoGroups.get(funcionario.id)!.dates.push(rec.dateStr);
+  }
+
+  // Main loop: FOLGA + punch records (ATESTADO handled separately)
+  for (const rec of records) {
+    if (rec.tipo === "ATESTADO") continue;
+
+    const funcionario = resolveFuncionario(rec.nomeFuncionario);
     if (!funcionario) { unmatched.add(rec.nomeFuncionario); continue; }
 
     const { dateStr, batidas } = rec;
@@ -245,23 +285,6 @@ export async function POST(req: NextRequest) {
         if (existing) { await prisma.registroPonto.update({ where: { id: existing.id }, data: payload }); updated++; }
         else { await prisma.registroPonto.create({ data: payload }); imported++; }
       } catch { errors.push(`${rec.nomeFuncionario} / ${dateStr}: erro ao salvar folga`); }
-      continue;
-    }
-
-    if (rec.tipo === "ATESTADO") {
-      try {
-        const existing = await prisma.ausencia.findFirst({
-          where: { funcionarioId: funcionario.id, dataInicio: { lte: dataDate }, dataFim: { gte: dataDate } },
-        });
-        if (!existing) {
-          await prisma.ausencia.create({
-            data: { funcionarioId: funcionario.id, tipo: "ATESTADO_MEDICO", dataInicio: dataDate, dataFim: dataDate, diasAfastamento: 1, status: "APROVADA", motivo: "Importado via planilha" },
-          });
-          imported++;
-        } else {
-          updated++;
-        }
-      } catch { errors.push(`${rec.nomeFuncionario} / ${dateStr}: erro ao salvar atestado`); }
       continue;
     }
 
@@ -292,6 +315,29 @@ export async function POST(req: NextRequest) {
       }
     } catch {
       errors.push(`${rec.nomeFuncionario} / ${dateStr}: erro ao salvar`);
+    }
+  }
+
+  // Post-loop: save each consecutive ATESTADO span as a single Ausencia
+  for (const [funcionarioId, { nome, dates }] of atestadoGroups) {
+    const spans = groupConsecutiveDates(dates);
+    for (const span of spans) {
+      const dataInicio = new Date(`${span.start}T00:00:00`);
+      const dataFim    = new Date(`${span.end}T00:00:00`);
+      try {
+        const existing = await prisma.ausencia.findFirst({
+          where: { funcionarioId, tipo: "ATESTADO_MEDICO", dataInicio: { lte: dataFim }, dataFim: { gte: dataInicio } },
+        });
+        if (!existing) {
+          await prisma.ausencia.create({
+            data: { funcionarioId, tipo: "ATESTADO_MEDICO", dataInicio, dataFim, diasAfastamento: span.days, status: "APROVADA", motivo: "Importado via planilha" },
+          });
+          imported++;
+        } else {
+          await prisma.ausencia.update({ where: { id: existing.id }, data: { dataInicio, dataFim, diasAfastamento: span.days } });
+          updated++;
+        }
+      } catch { errors.push(`${nome}: erro ao salvar atestado`); }
     }
   }
 
