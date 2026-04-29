@@ -93,14 +93,14 @@ export async function POST(req: NextRequest) {
   const arrayBuffer = await file.arrayBuffer();
   const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: "array", cellDates: false });
   const ws = wb.Sheets[wb.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { header: 1, defval: "" }) as unknown[][];
+  const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: "" });
 
   if (rows.length < 2) {
     return NextResponse.json({ error: "Planilha vazia ou sem dados" }, { status: 400 });
   }
 
   // First row = headers; find column indexes
-  const headerRow = (rows[0] as unknown[]).map((h) => String(h).toLowerCase().trim());
+  const headerRow = rows[0].map((h) => String(h).toLowerCase().trim());
   const col = (names: string[]) => headerRow.findIndex((h) => names.some((n) => h.includes(n)));
 
   const iNome  = col(["nome"]);
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
   const errors: string[] = [];
 
   for (let i = 1; i < rows.length; i++) {
-    const row = rows[i] as unknown[];
+    const row = rows[i];
     const nomeRaw = String(row[iNome] ?? "").trim();
     if (!nomeRaw) continue;
 
