@@ -79,6 +79,7 @@ interface ParsedRecord {
   nomeFuncionario: string;
   dateStr: string;
   batidas: string[];
+  tipo?: "FOLGA" | "ATESTADO";
 }
 
 function parseCartaoPonto(rows: unknown[][]): ParsedRecord[] {
@@ -108,7 +109,14 @@ function parseCartaoPonto(rows: unknown[][]): ParsedRecord[] {
 
     // Columns B(1)=Ent.1, C(2)=Saí.1, D(3)=Ent.2, E(4)=Saí.2
     const b1 = cellStr(row, 1).toLowerCase().replace(/[*^]+$/, "").trim();
-    // Skip FOLGA / absence days
+    if (b1 === "folga") {
+      records.push({ nomeFuncionario, dateStr, batidas: [], tipo: "FOLGA" });
+      continue;
+    }
+    if (b1.startsWith("atesta")) {
+      records.push({ nomeFuncionario, dateStr, batidas: [], tipo: "ATESTADO" });
+      continue;
+    }
     if (SKIP_VALUES.has(b1)) continue;
 
     const batidas: string[] = [];
@@ -228,6 +236,35 @@ export async function POST(req: NextRequest) {
     if (!funcionario) { unmatched.add(rec.nomeFuncionario); continue; }
 
     const { dateStr, batidas } = rec;
+    const dataDate = new Date(`${dateStr}T00:00:00`);
+
+    if (rec.tipo === "FOLGA") {
+      try {
+        const existing = await prisma.registroPonto.findFirst({ where: { funcionarioId: funcionario.id, data: dataDate } });
+        const payload = { funcionarioId: funcionario.id, data: dataDate, entrada: null, saidaAlmoco: null, retornoAlmoco: null, saida: null, horasTrabalhadas: 0, horasExtras: 0, ocorrencia: "FOLGA" };
+        if (existing) { await prisma.registroPonto.update({ where: { id: existing.id }, data: payload }); updated++; }
+        else { await prisma.registroPonto.create({ data: payload }); imported++; }
+      } catch { errors.push(`${rec.nomeFuncionario} / ${dateStr}: erro ao salvar folga`); }
+      continue;
+    }
+
+    if (rec.tipo === "ATESTADO") {
+      try {
+        const existing = await prisma.ausencia.findFirst({
+          where: { funcionarioId: funcionario.id, dataInicio: { lte: dataDate }, dataFim: { gte: dataDate } },
+        });
+        if (!existing) {
+          await prisma.ausencia.create({
+            data: { funcionarioId: funcionario.id, tipo: "ATESTADO_MEDICO", dataInicio: dataDate, dataFim: dataDate, diasAfastamento: 1, status: "APROVADA", motivo: "Importado via planilha" },
+          });
+          imported++;
+        } else {
+          updated++;
+        }
+      } catch { errors.push(`${rec.nomeFuncionario} / ${dateStr}: erro ao salvar atestado`); }
+      continue;
+    }
+
     const toDate = (t: string) => new Date(`${dateStr}T${t}:00`);
     const dates  = batidas.map(toDate);
     const paired = dates.length % 2 === 0 ? dates : dates.slice(0, -1);
@@ -240,7 +277,6 @@ export async function POST(req: NextRequest) {
 
     const horasTrabalhadas = calcHoursFromPunches(paired);
     const horasExtras = Math.max(0, horasTrabalhadas - 8);
-    const dataDate = new Date(`${dateStr}T00:00:00`);
     const ocorrencia = detectOcorrencia(entrada ?? undefined, dataDate, horasTrabalhadas);
 
     const payload = { funcionarioId: funcionario.id, data: dataDate, entrada, saidaAlmoco, retornoAlmoco, saida, horasTrabalhadas, horasExtras, ocorrencia };

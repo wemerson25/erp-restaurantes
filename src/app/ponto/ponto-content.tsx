@@ -32,6 +32,7 @@ const ocorrenciaVariant: Record<string, "success" | "warning" | "destructive" | 
   ATRASO: "destructive",
   FALTA: "destructive",
   SAIDA_ANTECIPADA: "warning",
+  FOLGA: "secondary",
 };
 
 const ocorrenciaLabel: Record<string, string> = {
@@ -39,6 +40,7 @@ const ocorrenciaLabel: Record<string, string> = {
   ATRASO: "Atraso",
   FALTA: "Falta",
   SAIDA_ANTECIPADA: "Saída Antecipada",
+  FOLGA: "Folga",
 };
 
 interface AFDResult {
