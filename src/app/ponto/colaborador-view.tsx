@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Loader2, UserCircle2, Trash2 } from "lucide-react";
+import { Loader2, UserCircle2, Trash2, Download } from "lucide-react";
 import { Select } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -185,12 +185,21 @@ export function ColaboradorView({ funcionarios, filterMonth }: Props) {
             </Select>
           </div>
           {data && (
-            <div className="text-sm text-gray-500">
-              <span className="font-medium text-gray-800">{data.funcionario.cargo.nome}</span>
-              {" · "}
-              {data.funcionario.restaurante.nome}
-              {" · "}
-              <span className="capitalize">{monthLabel}</span>
+            <div className="flex items-center gap-4">
+              <div className="text-sm text-gray-500">
+                <span className="font-medium text-gray-800">{data.funcionario.cargo.nome}</span>
+                {" · "}
+                {data.funcionario.restaurante.nome}
+                {" · "}
+                <span className="capitalize">{monthLabel}</span>
+              </div>
+              <a
+                href={`/api/ponto/cartao?funcionarioId=${funcionarioId}&month=${filterMonth}`}
+                download
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors"
+              >
+                <Download size={13} /> Cartão Ponto
+              </a>
             </div>
           )}
         </div>
