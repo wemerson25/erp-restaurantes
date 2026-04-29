@@ -1,0 +1,41 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
+import { detectOcorrencia, calcHoursFromPunches } from "@/lib/schedule";
+
+export async function POST(req: NextRequest) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+
+  const { funcionarioId, month } = await req.json() as { funcionarioId: string; month?: string };
+  if (!funcionarioId) return NextResponse.json({ error: "funcionarioId obrigatório" }, { status: 400 });
+
+  const where: Parameters<typeof prisma.registroPonto.findMany>[0]["where"] = { funcionarioId };
+  if (month) {
+    const [y, m] = month.split("-").map(Number);
+    where.data = { gte: new Date(y, m - 1, 1), lte: new Date(y, m, 0, 23, 59, 59) };
+  }
+
+  const registros = await prisma.registroPonto.findMany({ where });
+
+  let updated = 0;
+  for (const rec of registros) {
+    const punches: Date[] = [];
+    if (rec.entrada) punches.push(rec.entrada);
+    if (rec.saidaAlmoco) punches.push(rec.saidaAlmoco);
+    if (rec.retornoAlmoco) punches.push(rec.retornoAlmoco);
+    if (rec.saida) punches.push(rec.saida);
+
+    const horasTrabalhadas = calcHoursFromPunches(punches);
+    const horasExtras = Math.max(0, horasTrabalhadas - 8);
+    const ocorrencia = detectOcorrencia(rec.entrada ?? undefined, rec.data, horasTrabalhadas);
+
+    await prisma.registroPonto.update({
+      where: { id: rec.id },
+      data: { horasTrabalhadas, horasExtras, ocorrencia },
+    });
+    updated++;
+  }
+
+  return NextResponse.json({ updated });
+}

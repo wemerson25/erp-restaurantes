@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Loader2, UserCircle2, Trash2, Download } from "lucide-react";
+import { Loader2, UserCircle2, Trash2, Download, RefreshCw } from "lucide-react";
 import { Select } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -122,6 +122,7 @@ export function ColaboradorView({ funcionarios, filterMonth }: Props) {
   const [funcionarioId, setFuncionarioId] = useState("");
   const [data, setData] = useState<ColabData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
 
   function refetch() {
     if (!funcionarioId) return;
@@ -137,6 +138,18 @@ export function ColaboradorView({ funcionarios, filterMonth }: Props) {
     refetch();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [funcionarioId, filterMonth]);
+
+  async function handleRecalcular() {
+    if (!funcionarioId) return;
+    setRecalculating(true);
+    await fetch("/api/ponto/recalcular", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ funcionarioId, month: filterMonth }),
+    });
+    await refetch();
+    setRecalculating(false);
+  }
 
   async function handleDeleteRegistro(id: string) {
     if (!confirm("Excluir este registro de ponto?")) return;
@@ -193,6 +206,15 @@ export function ColaboradorView({ funcionarios, filterMonth }: Props) {
                 {" · "}
                 <span className="capitalize">{monthLabel}</span>
               </div>
+              <button
+                onClick={handleRecalcular}
+                disabled={recalculating}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition-colors"
+                title="Recalcular ocorrências e horas do mês"
+              >
+                <RefreshCw size={13} className={recalculating ? "animate-spin" : ""} />
+                {recalculating ? "Recalculando..." : "Recalcular"}
+              </button>
               <a
                 href={`/api/ponto/cartao?funcionarioId=${funcionarioId}&month=${filterMonth}`}
                 download
