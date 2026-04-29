@@ -12,15 +12,20 @@ interface Punch {
 
 function parseAFD(text: string): Punch[] {
   const punches: Punch[] = [];
-  for (const line of text.split(/\r?\n/)) {
-    if (line.length < 33 || line[9] !== "3") continue;
-    const dd = line.substring(10, 12);
-    const mm = line.substring(12, 14);
+  // Strip BOM if present, normalize line endings
+  const clean = text.replace(/^﻿/, "").replace(/\r/g, "");
+  for (const rawLine of clean.split("\n")) {
+    const line = rawLine.trimEnd();
+    if (line.length < 33) continue;
+    // Type 3 = punch record (character at position 9, 0-indexed)
+    if (line[9] !== "3") continue;
+    const dd   = line.substring(10, 12);
+    const mm   = line.substring(12, 14);
     const yyyy = line.substring(14, 18);
-    const hh = line.substring(18, 20);
-    const min = line.substring(20, 22);
-    const pis = line.substring(22, 33).trim();
-    if (!pis || pis === "00000000000") continue;
+    const hh   = line.substring(18, 20);
+    const min  = line.substring(20, 22);
+    const pis  = line.substring(22, 33).trim();
+    if (!pis || !/^\d+$/.test(pis) || pis === "00000000000") continue;
     const dateStr = `${yyyy}-${mm}-${dd}`;
     const timeStr = `${hh}:${min}`;
     punches.push({ pis, dateStr, timeStr, timestamp: new Date(`${dateStr}T${timeStr}:00`).getTime() });
@@ -58,7 +63,7 @@ export async function POST(req: NextRequest) {
   for (const list of groups.values()) list.sort((a, b) => a.timestamp - b.timestamp);
 
   const funcionarios = await prisma.funcionario.findMany({
-    where: { pisPassep: { not: null }, status: "ATIVO" },
+    where: { pisPassep: { not: null } },
     select: { id: true, pisPassep: true },
   });
   const byPis = new Map(funcionarios.map((f) => [f.pisPassep!.replace(/\D/g, ""), f]));
