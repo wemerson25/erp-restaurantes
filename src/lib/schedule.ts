@@ -33,7 +33,8 @@ function getSchedule(date: Date, entrada?: Date): DaySchedule {
 export function detectOcorrencia(
   entrada: Date | undefined,
   date: Date,
-  horasTrabalhadas: number
+  horasTrabalhadas: number,
+  restauranteNome = ""
 ): string {
   if (!entrada) return "FALTA";
 
@@ -43,7 +44,10 @@ export function detectOcorrencia(
   const actualMin   = entrada.getUTCHours() * 60 + entrada.getUTCMinutes();
 
   if (actualMin > expectedMin + TOLERANCE_MINUTES) return "ATRASO";
-  if (horasTrabalhadas > 0 && horasTrabalhadas < sched.standardHours - 1) return "SAIDA_ANTECIPADA";
+
+  // Use the restaurant's contractual daily load as the reference for early departure
+  const carga = getCargaDiaria(restauranteNome, date);
+  if (horasTrabalhadas > 0 && horasTrabalhadas < carga - 1) return "SAIDA_ANTECIPADA";
   return "NORMAL";
 }
 

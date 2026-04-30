@@ -303,7 +303,7 @@ export async function POST(req: NextRequest) {
     const horasTrabalhadas = calcHoursFromPunches(paired);
     const carga = getCargaDiaria(funcionario.restaurante.nome, dataDate);
     const horasExtras = Math.max(0, Math.round((horasTrabalhadas - carga) * 100) / 100);
-    const ocorrencia = detectOcorrencia(entrada ?? undefined, dataDate, horasTrabalhadas);
+    const ocorrencia = detectOcorrencia(entrada ?? undefined, dataDate, horasTrabalhadas, funcionario.restaurante.nome);
 
     const payload = { funcionarioId: funcionario.id, data: dataDate, entrada, saidaAlmoco, retornoAlmoco, saida, horasTrabalhadas, horasExtras, ocorrencia };
 

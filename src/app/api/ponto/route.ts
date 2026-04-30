@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
   const retornoAlmoco = refeicaoRetorno ?? (n >= 4 ? paired[n - 2] : null);
   const ocorrencia = data.ocorrencia && data.ocorrencia !== "NORMAL"
     ? data.ocorrencia
-    : detectOcorrencia(entrada ?? undefined, dataDate, horasTrabalhadas);
+    : detectOcorrencia(entrada ?? undefined, dataDate, horasTrabalhadas, funcionario?.restaurante?.nome ?? "");
 
   const registro = await prisma.registroPonto.create({
     data: {

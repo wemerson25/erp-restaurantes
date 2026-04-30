@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     const horasTrabalhadas = calcHoursFromPunches(punches);
     const carga = getCargaDiaria(rec.funcionario.restaurante.nome, rec.data);
     const horasExtras = Math.max(0, Math.round((horasTrabalhadas - carga) * 100) / 100);
-    const ocorrencia = detectOcorrencia(rec.entrada, rec.data, horasTrabalhadas);
+    const ocorrencia = detectOcorrencia(rec.entrada, rec.data, horasTrabalhadas, rec.funcionario.restaurante.nome);
 
     await prisma.registroPonto.update({
       where: { id: rec.id },
