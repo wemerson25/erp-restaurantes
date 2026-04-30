@@ -171,21 +171,20 @@ export function AusenciasContent() {
                       </p>
                     </div>
 
-                    {/* Tipo */}
-                    <span className={cn("hidden sm:inline-flex text-xs px-2 py-1 rounded-full font-medium", tipo.color)}>
-                      {tipo.label}
-                    </span>
-
-                    {/* Datas */}
-                    <div className="hidden md:block text-sm text-gray-600 text-right">
-                      <p>{fmt(a.dataInicio)} → {fmt(a.dataFim)}</p>
-                      <p className="text-xs text-gray-400">{a.diasAfastamento} dia{a.diasAfastamento !== 1 ? "s" : ""}</p>
+                    {/* Tipo + datas (empilhado no mobile) */}
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span className={cn("inline-flex text-xs px-2 py-0.5 rounded-full font-medium", tipo.color)}>
+                        {tipo.label}
+                      </span>
+                      <span className="text-xs text-gray-400 whitespace-nowrap">
+                        {fmt(a.dataInicio)}{a.dataInicio !== a.dataFim ? ` → ${fmt(a.dataFim)}` : ""} · {a.diasAfastamento}d
+                      </span>
                     </div>
 
                     {/* Status */}
-                    <span className={cn("inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border font-medium", statusCfg.color)}>
+                    <span className={cn("inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border font-medium shrink-0", statusCfg.color)}>
                       <StatusIcon size={12} />
-                      {statusCfg.label}
+                      <span className="hidden sm:inline">{statusCfg.label}</span>
                     </span>
 
                     <ChevronDown size={14} className={cn("text-gray-400 transition-transform flex-shrink-0", expanded && "rotate-180")} />
@@ -222,48 +221,45 @@ export function AusenciasContent() {
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
+                      <div className="flex items-center gap-2 pt-3 border-t border-gray-200 flex-wrap">
                         {a.status === "PENDENTE" && (
                           <>
                             <Button
-                              size="sm"
-                              className="bg-green-600 hover:bg-green-700 text-white text-xs h-7 px-3"
+                              className="bg-green-600 hover:bg-green-700 text-white"
                               onClick={e => { e.stopPropagation(); handleStatus(a.id, "APROVADO"); }}
                             >
-                              <CheckCircle size={12} /> Aprovar
+                              <CheckCircle size={14} /> Aprovar
                             </Button>
                             <Button
-                              size="sm"
                               variant="outline"
-                              className="text-red-600 border-red-200 hover:bg-red-50 text-xs h-7 px-3"
+                              className="text-red-600 border-red-200 hover:bg-red-50"
                               onClick={e => { e.stopPropagation(); handleStatus(a.id, "REPROVADO"); }}
                             >
-                              <X size={12} /> Reprovar
+                              <X size={14} /> Reprovar
                             </Button>
                           </>
                         )}
                         {a.status !== "PENDENTE" && (
                           <Button
-                            size="sm"
                             variant="outline"
-                            className="text-yellow-600 border-yellow-200 hover:bg-yellow-50 text-xs h-7 px-3"
+                            className="text-yellow-600 border-yellow-200 hover:bg-yellow-50"
                             onClick={e => { e.stopPropagation(); handleStatus(a.id, "PENDENTE"); }}
                           >
-                            <Clock size={12} /> Reabrir
+                            <Clock size={14} /> Reabrir
                           </Button>
                         )}
                         <div className="flex-1" />
                         <button
-                          className="p-1.5 rounded hover:bg-white text-gray-400 hover:text-orange-500 transition-colors"
+                          className="p-2.5 rounded-lg hover:bg-white text-gray-400 hover:text-orange-500 transition-colors"
                           onClick={e => { e.stopPropagation(); setEditing(a); setShowForm(true); }}
                         >
-                          <Pencil size={14} />
+                          <Pencil size={16} />
                         </button>
                         <button
-                          className="p-1.5 rounded hover:bg-white text-gray-400 hover:text-red-500 transition-colors"
+                          className="p-2.5 rounded-lg hover:bg-white text-gray-400 hover:text-red-500 transition-colors"
                           onClick={e => { e.stopPropagation(); handleDelete(a.id); }}
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={16} />
                         </button>
                       </div>
                     </div>
@@ -277,14 +273,14 @@ export function AusenciasContent() {
 
       {/* Modal */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-5 py-4 border-b">
               <h2 className="font-semibold text-gray-900">
                 {editing ? "Editar Registro" : "Registrar Ausência"}
               </h2>
-              <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600">
-                <X size={18} />
+              <button onClick={() => setShowForm(false)} className="p-2 -mr-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                <X size={20} />
               </button>
             </div>
             <AusenciaForm

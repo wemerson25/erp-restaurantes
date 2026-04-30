@@ -12,10 +12,10 @@ interface ModalProps {
 }
 
 const sizeMap = {
-  sm: "max-w-md",
-  md: "max-w-lg",
-  lg: "max-w-2xl",
-  xl: "max-w-4xl",
+  sm: "sm:max-w-md",
+  md: "sm:max-w-lg",
+  lg: "sm:max-w-2xl",
+  xl: "sm:max-w-4xl",
 };
 
 export function Modal({ open, onClose, title, children, size = "md" }: ModalProps) {
@@ -28,16 +28,24 @@ export function Modal({ open, onClose, title, children, size = "md" }: ModalProp
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className={cn("relative w-full mx-4 bg-white rounded-xl shadow-xl overflow-hidden", sizeMap[size])}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+      <div className={cn(
+        "relative w-full bg-white shadow-xl overflow-hidden",
+        "rounded-t-2xl sm:rounded-xl",
+        "sm:mx-4",
+        sizeMap[size]
+      )}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900">{title}</h2>
+          <button
+            onClick={onClose}
+            className="p-2 -mr-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          >
             <X size={20} />
           </button>
         </div>
-        <div className="overflow-y-auto max-h-[80vh]">{children}</div>
+        <div className="overflow-y-auto max-h-[88vh] sm:max-h-[80vh]">{children}</div>
       </div>
     </div>
   );

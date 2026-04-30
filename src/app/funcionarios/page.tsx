@@ -12,7 +12,7 @@ export default async function FuncionariosPage() {
       <Sidebar />
       <div className="flex-1 flex flex-col lg:ml-60">
         <Header title="Funcionários" subtitle="Gestão de colaboradores" user={session} />
-        <main className="flex-1 p-3 sm:p-6">
+        <main className="flex-1 p-3 sm:p-6 pb-24 lg:pb-6">
           <FuncionariosContent />
         </main>
       </div>

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, Building2, Clock, Umbrella,
-  DollarSign, Briefcase, ChefHat, LogOut, Menu, X, FileX
+  DollarSign, Briefcase, ChefHat, LogOut, Menu, X, FileX, MoreHorizontal
 } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,15 @@ const navItems = [
   { href: "/folha",        label: "Folha de Pagamento",  icon: DollarSign },
   { href: "/vagas",        label: "Recrutamento",        icon: Briefcase },
   { href: "/cargos",       label: "Cargos",              icon: ChefHat },
+];
+
+// Items shown in the bottom nav bar on mobile
+const bottomNavItems = [
+  { href: "/dashboard",    label: "Dashboard", icon: LayoutDashboard },
+  { href: "/funcionarios", label: "Equipe",    icon: Users },
+  { href: "/ponto",        label: "Ponto",     icon: Clock },
+  { href: "/folha",        label: "Folha",     icon: DollarSign },
+  { href: "/ausencias",    label: "Faltas",    icon: FileX },
 ];
 
 export function Sidebar() {
@@ -58,7 +67,7 @@ export function Sidebar() {
               href={href}
               onClick={() => setMobileOpen(false)}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+                "flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-all",
                 active
                   ? "bg-white text-red-700 shadow-sm font-semibold"
                   : "text-white/80 hover:bg-white/10 hover:text-white"
@@ -78,7 +87,7 @@ export function Sidebar() {
         </div>
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-white/70 hover:bg-white/10 hover:text-white transition-all"
+          className="flex items-center gap-3 w-full px-3 py-3 rounded-lg text-sm font-medium text-white/70 hover:bg-white/10 hover:text-white transition-all"
         >
           <LogOut size={18} />
           Sair do Sistema
@@ -89,20 +98,21 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Mobile toggle */}
+      {/* Mobile hamburger — only shows if bottom nav "Mais" isn't covering it */}
       <button
-        className="fixed top-3.5 left-4 z-50 lg:hidden text-white p-2 rounded-lg shadow-lg"
+        className="fixed top-3 left-3 z-50 lg:hidden text-white p-2.5 rounded-xl shadow-lg"
         style={{ backgroundColor: "var(--brand-red)" }}
         onClick={() => setMobileOpen(!mobileOpen)}
+        aria-label="Menu"
       >
         {mobileOpen ? <X size={20} /> : <Menu size={20} />}
       </button>
 
-      {/* Mobile overlay */}
+      {/* Mobile overlay sidebar */}
       {mobileOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
-          <div className="absolute left-0 top-0 bottom-0 w-64" style={{ background: "linear-gradient(to bottom, var(--brand-red), var(--brand-black))" }}>
+          <div className="absolute left-0 top-0 bottom-0 w-72" style={{ background: "linear-gradient(to bottom, var(--brand-red), var(--brand-black))" }}>
             <SidebarContent />
           </div>
         </div>
@@ -115,6 +125,33 @@ export function Sidebar() {
       >
         <SidebarContent />
       </aside>
+
+      {/* Mobile bottom navigation bar */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 lg:hidden bg-white border-t border-gray-200 flex safe-area-pb">
+        {bottomNavItems.map(({ href, label, icon: Icon }) => {
+          const active = pathname.startsWith(href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                "flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 transition-colors",
+                active ? "text-red-600" : "text-gray-400 hover:text-gray-600"
+              )}
+            >
+              <Icon size={22} />
+              <span className="text-[10px] font-medium">{label}</span>
+            </Link>
+          );
+        })}
+        <button
+          onClick={() => setMobileOpen(true)}
+          className="flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          <MoreHorizontal size={22} />
+          <span className="text-[10px] font-medium">Mais</span>
+        </button>
+      </nav>
     </>
   );
 }

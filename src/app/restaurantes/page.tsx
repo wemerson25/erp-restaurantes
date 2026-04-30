@@ -12,7 +12,7 @@ export default async function RestaurantesPage() {
       <Sidebar />
       <div className="flex-1 flex flex-col lg:ml-60">
         <Header title="Restaurantes" subtitle="Unidades do grupo" user={session} />
-        <main className="flex-1 p-3 sm:p-6"><RestaurantesContent /></main>
+        <main className="flex-1 p-3 sm:p-6 pb-24 lg:pb-6"><RestaurantesContent /></main>
       </div>
     </div>
   );
