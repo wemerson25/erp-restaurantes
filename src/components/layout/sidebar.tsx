@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, Building2, Clock, Umbrella,
-  DollarSign, Briefcase, ChefHat, LogOut, Menu, X, FileX, MoreHorizontal
+  DollarSign, Briefcase, ChefHat, LogOut, Menu, X, FileX
 } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
@@ -19,15 +19,6 @@ const navItems = [
   { href: "/folha",        label: "Folha de Pagamento",  icon: DollarSign },
   { href: "/vagas",        label: "Recrutamento",        icon: Briefcase },
   { href: "/cargos",       label: "Cargos",              icon: ChefHat },
-];
-
-// Items shown in the bottom nav bar on mobile
-const bottomNavItems = [
-  { href: "/dashboard",    label: "Dashboard", icon: LayoutDashboard },
-  { href: "/funcionarios", label: "Equipe",    icon: Users },
-  { href: "/ponto",        label: "Ponto",     icon: Clock },
-  { href: "/folha",        label: "Folha",     icon: DollarSign },
-  { href: "/ausencias",    label: "Faltas",    icon: FileX },
 ];
 
 export function Sidebar() {
@@ -98,7 +89,7 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Mobile hamburger — only shows if bottom nav "Mais" isn't covering it */}
+      {/* Mobile toggle */}
       <button
         className="fixed top-3 left-3 z-50 lg:hidden text-white p-2.5 rounded-xl shadow-lg"
         style={{ backgroundColor: "var(--brand-red)" }}
@@ -108,7 +99,7 @@ export function Sidebar() {
         {mobileOpen ? <X size={20} /> : <Menu size={20} />}
       </button>
 
-      {/* Mobile overlay sidebar */}
+      {/* Mobile overlay */}
       {mobileOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
@@ -125,33 +116,6 @@ export function Sidebar() {
       >
         <SidebarContent />
       </aside>
-
-      {/* Mobile bottom navigation bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 lg:hidden bg-white border-t border-gray-200 flex safe-area-pb">
-        {bottomNavItems.map(({ href, label, icon: Icon }) => {
-          const active = pathname.startsWith(href);
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={cn(
-                "flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 transition-colors",
-                active ? "text-red-600" : "text-gray-400 hover:text-gray-600"
-              )}
-            >
-              <Icon size={22} />
-              <span className="text-[10px] font-medium">{label}</span>
-            </Link>
-          );
-        })}
-        <button
-          onClick={() => setMobileOpen(true)}
-          className="flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          <MoreHorizontal size={22} />
-          <span className="text-[10px] font-medium">Mais</span>
-        </button>
-      </nav>
     </>
   );
 }

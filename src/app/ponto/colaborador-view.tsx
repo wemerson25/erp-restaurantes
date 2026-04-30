@@ -185,12 +185,13 @@ export function ColaboradorView({ funcionarios, filterMonth }: Props) {
     <div className="space-y-4">
       {/* Employee selector */}
       <Card>
-        <div className="p-4 flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-          <UserCircle2 size={20} className="text-red-600 shrink-0 mt-0.5 sm:mt-0" />
-          <div className="flex-1 max-w-xs">
+        <div className="p-4 space-y-3">
+          <div className="flex items-center gap-3">
+            <UserCircle2 size={20} className="text-red-600 shrink-0" />
             <Select
               value={funcionarioId}
               onChange={(e) => setFuncionarioId(e.target.value)}
+              className="flex-1"
             >
               <option value="">Selecione um colaborador...</option>
               {funcionarios.map((f) => (
@@ -201,30 +202,30 @@ export function ColaboradorView({ funcionarios, filterMonth }: Props) {
             </Select>
           </div>
           {data && (
-            <div className="flex items-center gap-4">
-              <div className="text-sm text-gray-500">
-                <span className="font-medium text-gray-800">{data.funcionario.cargo.nome}</span>
-                {" · "}
-                {data.funcionario.restaurante.nome}
-                {" · "}
-                <span className="capitalize">{monthLabel}</span>
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <p className="text-xs text-gray-500 flex-1 min-w-0 truncate">
+                <span className="font-medium text-gray-700">{data.funcionario.cargo.nome}</span>
+                {" · "}{data.funcionario.restaurante.nome}
+                {" · "}<span className="capitalize">{monthLabel}</span>
+              </p>
+              <div className="flex gap-2 shrink-0">
+                <button
+                  onClick={handleRecalcular}
+                  disabled={recalculating}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition-colors"
+                >
+                  <RefreshCw size={13} className={recalculating ? "animate-spin" : ""} />
+                  <span className="hidden sm:inline">{recalculating ? "Recalculando..." : "Recalcular"}</span>
+                </button>
+                <a
+                  href={`/api/ponto/cartao?funcionarioId=${funcionarioId}&month=${filterMonth}`}
+                  download
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors"
+                >
+                  <Download size={13} />
+                  <span className="hidden sm:inline">Cartão Ponto</span>
+                </a>
               </div>
-              <button
-                onClick={handleRecalcular}
-                disabled={recalculating}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition-colors"
-                title="Recalcular ocorrências e horas do mês"
-              >
-                <RefreshCw size={13} className={recalculating ? "animate-spin" : ""} />
-                {recalculating ? "Recalculando..." : "Recalcular"}
-              </button>
-              <a
-                href={`/api/ponto/cartao?funcionarioId=${funcionarioId}&month=${filterMonth}`}
-                download
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors"
-              >
-                <Download size={13} /> Cartão Ponto
-              </a>
             </div>
           )}
         </div>
@@ -267,9 +268,81 @@ export function ColaboradorView({ funcionarios, filterMonth }: Props) {
             ))}
           </div>
 
-          {/* Day table */}
+          {/* Day list */}
           <Card className="overflow-hidden">
-            <div className="overflow-x-auto">
+            {/* ── Mobile cards ── */}
+            <div className="sm:hidden divide-y divide-gray-100">
+              {days.map((day) => {
+                const info = classifyDay(day, data.registros, data.ausencias, data.ferias);
+                const date = new Date(day + "T12:00:00");
+                const dayOfWeek = DAYS_PT[date.getDay()];
+                const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                const dateFormatted = date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "UTC" });
+
+                if (info.kind === "ponto") {
+                  const r = info.registro;
+                  const oc = r.ocorrencia ?? "NORMAL";
+                  return (
+                    <div key={day} className={`px-4 py-3 ${pontoRowClass[oc] ?? ""}`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-bold ${isWeekend ? "text-blue-500" : "text-gray-500"}`}>{dayOfWeek}</span>
+                          <span className="font-mono text-xs text-gray-600">{dateFormatted}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={pontoVariant[oc] ?? "secondary"} className="text-xs">{pontoOcorrLabel[oc] ?? oc}</Badge>
+                          <button onClick={() => handleDeleteRegistro(r.id)} className="p-1.5 text-gray-300 hover:text-red-600 rounded-lg transition-colors">
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-mono text-gray-700">↓ {fmt(r.entrada)} · ↑ {fmt(r.saida)}</span>
+                        <span className="font-semibold text-gray-800">
+                          {r.horasTrabalhadas ? `${r.horasTrabalhadas.toFixed(1)}h` : "—"}
+                          {(r.horasExtras ?? 0) > 0 && <span className="text-blue-500 ml-1">(+{r.horasExtras?.toFixed(1)}h)</span>}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                }
+                if (info.kind === "ferias") {
+                  return (
+                    <div key={day} className="px-4 py-3 bg-indigo-50 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-bold ${isWeekend ? "text-blue-500" : "text-gray-500"}`}>{dayOfWeek}</span>
+                        <span className="font-mono text-xs text-gray-600">{dateFormatted}</span>
+                        <span className="text-xs text-indigo-700">Férias</span>
+                      </div>
+                      <Badge variant="secondary" className="text-xs bg-indigo-100 text-indigo-700 border-0">Férias</Badge>
+                    </div>
+                  );
+                }
+                if (info.kind === "ausencia") {
+                  const a = info.ausencia;
+                  return (
+                    <div key={day} className="px-4 py-3 bg-orange-50 flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={`text-xs font-bold shrink-0 ${isWeekend ? "text-blue-500" : "text-gray-500"}`}>{dayOfWeek}</span>
+                        <span className="font-mono text-xs text-gray-600 shrink-0">{dateFormatted}</span>
+                        <span className="text-xs text-orange-800 truncate">{ausenciaTipoLabel[a.tipo] ?? a.tipo}</span>
+                      </div>
+                      <Badge variant="warning" className="text-xs shrink-0">Ausência</Badge>
+                    </div>
+                  );
+                }
+                return (
+                  <div key={day} className={`px-4 py-2.5 flex items-center gap-2 ${isWeekend ? "bg-gray-50/60" : ""}`}>
+                    <span className={`text-xs font-bold ${isWeekend ? "text-blue-400" : "text-gray-300"}`}>{dayOfWeek}</span>
+                    <span className="font-mono text-xs text-gray-300">{dateFormatted}</span>
+                    <span className="text-xs text-gray-300 italic">Sem registro</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ── Desktop table ── */}
+            <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
@@ -305,44 +378,30 @@ export function ColaboradorView({ funcionarios, filterMonth }: Props) {
                           <td className="px-3 py-2.5 font-mono text-gray-700">{fmt(r.saida)}</td>
                           <td className="px-3 py-2.5 font-semibold text-gray-900">
                             {r.horasTrabalhadas ? `${r.horasTrabalhadas.toFixed(1)}h` : "—"}
-                            {(r.horasExtras ?? 0) > 0 && (
-                              <span className="text-blue-500 text-xs ml-1">(+{r.horasExtras?.toFixed(1)}h)</span>
-                            )}
+                            {(r.horasExtras ?? 0) > 0 && <span className="text-blue-500 text-xs ml-1">(+{r.horasExtras?.toFixed(1)}h)</span>}
                           </td>
                           <td className="px-3 py-2.5">
-                            <Badge variant={pontoVariant[oc] ?? "secondary"} className="text-xs">
-                              {pontoOcorrLabel[oc] ?? oc}
-                            </Badge>
+                            <Badge variant={pontoVariant[oc] ?? "secondary"} className="text-xs">{pontoOcorrLabel[oc] ?? oc}</Badge>
                           </td>
                           <td className="px-3 py-2.5">
-                            <button
-                              onClick={() => handleDeleteRegistro(r.id)}
-                              className="p-1 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Excluir registro"
-                            >
+                            <button onClick={() => handleDeleteRegistro(r.id)} className="p-1 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Excluir registro">
                               <Trash2 size={13} />
                             </button>
                           </td>
                         </tr>
                       );
                     }
-
                     if (info.kind === "ferias") {
                       return (
                         <tr key={day} className="bg-indigo-50 hover:bg-indigo-100 transition-all">
                           <td className="px-3 py-2.5 font-mono text-xs text-gray-600">{dateFormatted}</td>
                           <td className={`px-3 py-2.5 text-xs font-semibold ${isWeekend ? "text-blue-500" : "text-gray-500"}`}>{dayOfWeek}</td>
-                          <td colSpan={5} className="px-3 py-2.5 text-indigo-700 text-sm">
-                            Férias — {info.ferias.diasCorridos} dias corridos
-                          </td>
-                          <td className="px-3 py-2.5">
-                            <Badge variant="secondary" className="text-xs bg-indigo-100 text-indigo-700 border-0">Férias</Badge>
-                          </td>
+                          <td colSpan={5} className="px-3 py-2.5 text-indigo-700 text-sm">Férias — {info.ferias.diasCorridos} dias corridos</td>
+                          <td className="px-3 py-2.5"><Badge variant="secondary" className="text-xs bg-indigo-100 text-indigo-700 border-0">Férias</Badge></td>
                           <td className="px-3 py-2.5" />
                         </tr>
                       );
                     }
-
                     if (info.kind === "ausencia") {
                       const a = info.ausencia;
                       return (
@@ -353,15 +412,11 @@ export function ColaboradorView({ funcionarios, filterMonth }: Props) {
                             {ausenciaTipoLabel[a.tipo] ?? a.tipo}
                             {a.motivo && <span className="text-orange-600 text-xs ml-2">— {a.motivo}</span>}
                           </td>
-                          <td className="px-3 py-2.5">
-                            <Badge variant="warning" className="text-xs">Ausência</Badge>
-                          </td>
+                          <td className="px-3 py-2.5"><Badge variant="warning" className="text-xs">Ausência</Badge></td>
                           <td className="px-3 py-2.5" />
                         </tr>
                       );
                     }
-
-                    // vazio
                     return (
                       <tr key={day} className={`${isWeekend ? "bg-gray-50/50" : ""} hover:bg-gray-50 transition-all`}>
                         <td className="px-3 py-2.5 font-mono text-xs text-gray-400">{dateFormatted}</td>

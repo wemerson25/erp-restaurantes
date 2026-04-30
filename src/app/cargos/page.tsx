@@ -12,7 +12,7 @@ export default async function CargosPage() {
       <Sidebar />
       <div className="flex-1 flex flex-col lg:ml-60">
         <Header title="Cargos & Departamentos" subtitle="Estrutura organizacional" user={session} />
-        <main className="flex-1 p-3 sm:p-6 pb-24 lg:pb-6"><CargosContent /></main>
+        <main className="flex-1 p-3 sm:p-6"><CargosContent /></main>
       </div>
     </div>
   );
