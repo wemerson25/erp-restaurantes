@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { detectOcorrencia, calcHoursFromPunches } from "@/lib/schedule";
+import { detectOcorrencia, calcHoursFromPunches, getCargaDiaria } from "@/lib/schedule";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
 
   const registros = await prisma.registroPonto.findMany({
     where: { funcionarioId, ...(dataFilter ? { data: dataFilter } : {}) },
+    include: { funcionario: { select: { restaurante: { select: { nome: true } } } } },
   });
 
   let updated = 0;
@@ -29,7 +30,8 @@ export async function POST(req: NextRequest) {
     if (rec.saida) punches.push(rec.saida);
 
     const horasTrabalhadas = calcHoursFromPunches(punches);
-    const horasExtras = Math.max(0, horasTrabalhadas - 8);
+    const carga = getCargaDiaria(rec.funcionario.restaurante.nome, rec.data);
+    const horasExtras = Math.max(0, Math.round((horasTrabalhadas - carga) * 100) / 100);
     const ocorrencia = detectOcorrencia(rec.entrada ?? undefined, rec.data, horasTrabalhadas);
 
     await prisma.registroPonto.update({

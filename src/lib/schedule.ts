@@ -1,5 +1,16 @@
 export const TOLERANCE_MINUTES = 10;
 
+// Deck SteakHouse daily load: 7h20min every day
+const DECK_HOURS = 7 + 20 / 60;
+
+/** Returns the contractual daily work hours for a given restaurant and date. */
+export function getCargaDiaria(restauranteNome: string, date: Date): number {
+  if (/deck|steak/i.test(restauranteNome)) return DECK_HOURS;
+  // Ykedin (Oriental, Capim Grosso, etc.): weekdays 8h, weekends 6h
+  const day = date.getUTCDay();
+  return day === 0 || day === 6 ? 6 : 8;
+}
+
 type DaySchedule = { entry: string; standardHours: number };
 
 // Morning shift (Ykedin Oriental weekdays)

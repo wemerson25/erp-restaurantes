@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { calcHoursFromPunches, detectOcorrencia } from "@/lib/schedule";
+import { calcHoursFromPunches, detectOcorrencia, getCargaDiaria } from "@/lib/schedule";
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -66,7 +66,13 @@ export async function POST(req: NextRequest) {
     const mealH = (refeicaoRetorno.getTime() - refeicaoSaida.getTime()) / 3600000;
     horasTrabalhadas = Math.max(0, Math.round((horasTrabalhadas - mealH) * 100) / 100);
   }
-  const horasExtras = Math.max(0, horasTrabalhadas - 8);
+  const dataDate = new Date(data.data);
+  const funcionario = await prisma.funcionario.findUnique({
+    where: { id: data.funcionarioId },
+    select: { restaurante: { select: { nome: true } } },
+  });
+  const carga = getCargaDiaria(funcionario?.restaurante?.nome ?? "", dataDate);
+  const horasExtras = Math.max(0, Math.round((horasTrabalhadas - carga) * 100) / 100);
 
   // DB field mapping
   // entrada = first punch, saida = last punch
@@ -75,8 +81,6 @@ export async function POST(req: NextRequest) {
   const saida = n >= 2 ? paired[n - 1] : null;
   const saidaAlmoco = refeicaoSaida ?? (n >= 4 ? paired[n - 3] : null);
   const retornoAlmoco = refeicaoRetorno ?? (n >= 4 ? paired[n - 2] : null);
-
-  const dataDate = new Date(data.data);
   const ocorrencia = data.ocorrencia && data.ocorrencia !== "NORMAL"
     ? data.ocorrencia
     : detectOcorrencia(entrada ?? undefined, dataDate, horasTrabalhadas);

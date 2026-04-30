@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Plus, Loader2, Clock, Upload, CheckCircle2, AlertCircle, AlarmClock, Trash2, FileSpreadsheet, Download } from "lucide-react";
 import { ColaboradorView } from "./colaborador-view";
+import { HorasExtrasView } from "./horas-extras-view";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -71,7 +72,7 @@ export function PontoContent() {
     d.setMonth(d.getMonth() - 1);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
-  const [view, setView] = useState<"geral" | "colaborador">("colaborador");
+  const [view, setView] = useState<"geral" | "colaborador" | "horas-extras">("colaborador");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -232,15 +233,15 @@ export function PontoContent() {
       {/* Tabs + Month filter */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
-          {(["geral", "colaborador"] as const).map((v) => (
+          {(["geral", "colaborador", "horas-extras"] as const).map((v) => (
             <button
               key={v}
               onClick={() => setView(v)}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
                 view === v ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"
               }`}
             >
-              {v === "geral" ? "Visão Geral" : "Por Colaborador"}
+              {v === "geral" ? "Visão Geral" : v === "colaborador" ? "Por Colaborador" : "Horas Extras"}
             </button>
           ))}
         </div>
@@ -260,6 +261,11 @@ export function PontoContent() {
       {/* Colaborador view */}
       {view === "colaborador" && (
         <ColaboradorView funcionarios={funcionarios} filterMonth={filterMonth} />
+      )}
+
+      {/* Horas Extras view */}
+      {view === "horas-extras" && (
+        <HorasExtrasView filterMonth={filterMonth} />
       )}
 
       {/* Geral view */}
