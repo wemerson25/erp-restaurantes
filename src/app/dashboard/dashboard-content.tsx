@@ -1,7 +1,7 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { Users, Umbrella, TrendingUp, TrendingDown, Cake, AlarmClock, XCircle, FileText, ShieldAlert } from "lucide-react";
+import { Users, Umbrella, TrendingUp, TrendingDown, Cake, AlarmClock, XCircle, FileText, ShieldAlert, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const COLORS = ["#C41E2E", "#1A1A1A", "#E8293B", "#4B4B4B", "#9B1623", "#6B6B6B"];
@@ -18,10 +18,18 @@ interface DashboardData {
   admissoesMes: number;
   demissoesMes: number;
   funcionariosPorRestaurante: { nome: string; total: number }[];
+}
+
+interface RankingData {
   rankingAtrasos: RankingItem[];
   rankingFaltas: RankingItem[];
   rankingAtestados: RankingItem[];
   rankingAdvertencias: RankingItem[];
+}
+
+interface RankingFilter {
+  period: "month" | "all";
+  month: string;
 }
 
 interface Aniversariante {
@@ -197,9 +205,22 @@ function BirthdayWidget() {
 
 // ─── DashboardContent ─────────────────────────────────────────────────────────
 
+function defaultLastMonth(): string {
+  const d = new Date();
+  d.setDate(1);
+  d.setMonth(d.getMonth() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
 export function DashboardContent() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [rankings, setRankings] = useState<RankingData | null>(null);
+  const [rankingLoading, setRankingLoading] = useState(true);
+  const [rankingFilter, setRankingFilter] = useState<RankingFilter>({
+    period: "month",
+    month: defaultLastMonth(),
+  });
 
   useEffect(() => {
     fetch("/api/dashboard")
@@ -208,6 +229,22 @@ export function DashboardContent() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  const fetchRankings = useCallback((filter: RankingFilter) => {
+    setRankingLoading(true);
+    const params = filter.period === "all"
+      ? "period=all"
+      : `month=${filter.month}`;
+    fetch(`/api/dashboard/ranking?${params}`)
+      .then((r) => r.json())
+      .then(setRankings)
+      .catch(console.error)
+      .finally(() => setRankingLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetchRankings(rankingFilter);
+  }, [rankingFilter, fetchRankings]);
 
   if (loading) {
     return (
@@ -257,52 +294,65 @@ export function DashboardContent() {
       {/* Ranking */}
       <Card>
         <CardHeader className="pb-4">
-          <CardTitle className="flex items-center gap-2">
-            <ShieldAlert size={18} className="text-red-600" />
-            Ranking de Ocorrências
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 xl:grid-cols-4 gap-6 divide-x-0 xl:divide-x divide-gray-100">
-            <RankingColumn
-              title="Atrasos"
-              subtitle="Mês anterior"
-              icon={AlarmClock}
-              iconColor="bg-red-600"
-              items={data.rankingAtrasos}
-              emptyMsg="Nenhum atraso no mês anterior"
-            />
-            <div className="xl:pl-6">
-              <RankingColumn
-                title="Faltas"
-                subtitle="Mês anterior"
-                icon={XCircle}
-                iconColor="bg-rose-700"
-                items={data.rankingFaltas}
-                emptyMsg="Nenhuma falta no mês anterior"
-              />
-            </div>
-            <div className="xl:pl-6">
-              <RankingColumn
-                title="Atestados"
-                subtitle="Ano atual"
-                icon={FileText}
-                iconColor="bg-orange-500"
-                items={data.rankingAtestados}
-                emptyMsg="Nenhum atestado este ano"
-              />
-            </div>
-            <div className="xl:pl-6">
-              <RankingColumn
-                title="Advertências"
-                subtitle="Acumulado"
-                icon={ShieldAlert}
-                iconColor="bg-gray-700"
-                items={data.rankingAdvertencias}
-                emptyMsg="Nenhuma advertência"
-              />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <CardTitle className="flex items-center gap-2">
+              <ShieldAlert size={18} className="text-red-600" />
+              Ranking de Ocorrências
+            </CardTitle>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex bg-gray-100 p-0.5 rounded-lg">
+                <button
+                  onClick={() => setRankingFilter((f) => ({ ...f, period: "month" }))}
+                  className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${rankingFilter.period === "month" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
+                >
+                  Por mês
+                </button>
+                <button
+                  onClick={() => setRankingFilter((f) => ({ ...f, period: "all" }))}
+                  className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${rankingFilter.period === "all" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
+                >
+                  Todo o período
+                </button>
+              </div>
+              {rankingFilter.period === "month" && (
+                <input
+                  type="month"
+                  value={rankingFilter.month}
+                  onChange={(e) => setRankingFilter((f) => ({ ...f, month: e.target.value }))}
+                  className="h-8 rounded-lg border border-gray-200 bg-white px-2 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-transparent transition-colors"
+                />
+              )}
             </div>
           </div>
+        </CardHeader>
+        <CardContent>
+          {rankingLoading ? (
+            <div className="flex items-center justify-center h-32">
+              <Loader2 size={20} className="animate-spin text-red-500" />
+            </div>
+          ) : rankings && (
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-6 divide-x-0 xl:divide-x divide-gray-100">
+              {(() => {
+                const subtitle = rankingFilter.period === "all"
+                  ? "Todo o período"
+                  : new Date(rankingFilter.month + "-02").toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+                return (
+                  <>
+                    <RankingColumn title="Atrasos" subtitle={subtitle} icon={AlarmClock} iconColor="bg-red-600" items={rankings.rankingAtrasos} emptyMsg="Nenhum atraso" />
+                    <div className="xl:pl-6">
+                      <RankingColumn title="Faltas" subtitle={subtitle} icon={XCircle} iconColor="bg-rose-700" items={rankings.rankingFaltas} emptyMsg="Nenhuma falta" />
+                    </div>
+                    <div className="xl:pl-6">
+                      <RankingColumn title="Atestados" subtitle={subtitle} icon={FileText} iconColor="bg-orange-500" items={rankings.rankingAtestados} emptyMsg="Nenhum atestado" />
+                    </div>
+                    <div className="xl:pl-6">
+                      <RankingColumn title="Advertências" subtitle={subtitle} icon={ShieldAlert} iconColor="bg-gray-700" items={rankings.rankingAdvertencias} emptyMsg="Nenhuma advertência" />
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          )}
         </CardContent>
       </Card>
 
