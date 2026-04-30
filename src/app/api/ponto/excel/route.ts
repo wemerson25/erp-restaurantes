@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { detectOcorrencia, calcHoursFromPunches } from "@/lib/schedule";
+import { detectOcorrencia, calcHoursFromPunches, getCargaDiaria } from "@/lib/schedule";
 import * as XLSX from "xlsx";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -245,7 +245,9 @@ export async function POST(req: NextRequest) {
   }
 
   // Load all employees for name matching
-  const funcionarios = await prisma.funcionario.findMany({ select: { id: true, nome: true } });
+  const funcionarios = await prisma.funcionario.findMany({
+    select: { id: true, nome: true, restaurante: { select: { nome: true } } },
+  });
   const byName = new Map(funcionarios.map((f) => [normalizeName(f.nome), f]));
 
   let imported = 0;
@@ -299,7 +301,8 @@ export async function POST(req: NextRequest) {
     const saida         = n >= 2 ? paired[n - 1] : null;
 
     const horasTrabalhadas = calcHoursFromPunches(paired);
-    const horasExtras = Math.max(0, horasTrabalhadas - 8);
+    const carga = getCargaDiaria(funcionario.restaurante.nome, dataDate);
+    const horasExtras = Math.max(0, Math.round((horasTrabalhadas - carga) * 100) / 100);
     const ocorrencia = detectOcorrencia(entrada ?? undefined, dataDate, horasTrabalhadas);
 
     const payload = { funcionarioId: funcionario.id, data: dataDate, entrada, saidaAlmoco, retornoAlmoco, saida, horasTrabalhadas, horasExtras, ocorrencia };
@@ -339,7 +342,7 @@ export async function POST(req: NextRequest) {
             dataInicio: new Date(`${span.start}T00:00:00`),
             dataFim:    new Date(`${span.end}T00:00:00`),
             diasAfastamento: span.days,
-            status: "APROVADA",
+            status: "APROVADO",
             motivo: "Importado via planilha",
           },
         });
