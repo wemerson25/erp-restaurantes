@@ -318,27 +318,34 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Post-loop: save each consecutive ATESTADO span as a single Ausencia
+  // Post-loop: save grouped ATESTADO spans — delete any overlapping records first
   for (const [funcionarioId, { nome, dates }] of atestadoGroups) {
-    const spans = groupConsecutiveDates(dates);
-    for (const span of spans) {
-      const dataInicio = new Date(`${span.start}T00:00:00`);
-      const dataFim    = new Date(`${span.end}T00:00:00`);
-      try {
-        const existing = await prisma.ausencia.findFirst({
-          where: { funcionarioId, tipo: "ATESTADO_MEDICO", dataInicio: { lte: dataFim }, dataFim: { gte: dataInicio } },
+    const sortedDates = [...dates].sort();
+    const rangeStart = new Date(`${sortedDates[0]}T00:00:00`);
+    const rangeEnd   = new Date(`${sortedDates[sortedDates.length - 1]}T00:00:00`);
+
+    try {
+      // Remove all ATESTADO_MEDICO ausencias that overlap with the imported date range
+      await prisma.ausencia.deleteMany({
+        where: { funcionarioId, tipo: "ATESTADO_MEDICO", dataInicio: { lte: rangeEnd }, dataFim: { gte: rangeStart } },
+      });
+
+      const spans = groupConsecutiveDates(sortedDates);
+      for (const span of spans) {
+        await prisma.ausencia.create({
+          data: {
+            funcionarioId,
+            tipo: "ATESTADO_MEDICO",
+            dataInicio: new Date(`${span.start}T00:00:00`),
+            dataFim:    new Date(`${span.end}T00:00:00`),
+            diasAfastamento: span.days,
+            status: "APROVADA",
+            motivo: "Importado via planilha",
+          },
         });
-        if (!existing) {
-          await prisma.ausencia.create({
-            data: { funcionarioId, tipo: "ATESTADO_MEDICO", dataInicio, dataFim, diasAfastamento: span.days, status: "APROVADA", motivo: "Importado via planilha" },
-          });
-          imported++;
-        } else {
-          await prisma.ausencia.update({ where: { id: existing.id }, data: { dataInicio, dataFim, diasAfastamento: span.days } });
-          updated++;
-        }
-      } catch { errors.push(`${nome}: erro ao salvar atestado`); }
-    }
+        imported++;
+      }
+    } catch { errors.push(`${nome}: erro ao salvar atestado`); }
   }
 
   return NextResponse.json({ imported, updated, unmatched: Array.from(unmatched), errors, total: imported + updated });
