@@ -626,7 +626,7 @@ export function PontoContent() {
                 { key: "saidaAlmoco",   label: "Saída 2", note: "refeição" },
                 { key: "retornoAlmoco", label: "Entrada 3", note: "refeição" },
                 { key: "saida",         label: "Saída 3" },
-              ] as const).map(({ key, label, note }) => (
+              ] as { key: keyof typeof horarios; label: string; note?: string }[]).map(({ key, label, note }) => (
                 <div key={key}>
                   <label className="block text-xs text-gray-500 mb-1">
                     {label}{note && <span className="text-orange-500 ml-1">({note})</span>}
