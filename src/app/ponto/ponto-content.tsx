@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Loader2, Clock, Upload, CheckCircle2, AlertCircle, AlarmClock, Trash2, FileSpreadsheet, Download } from "lucide-react";
+import { Plus, Loader2, Clock, Upload, CheckCircle2, AlertCircle, AlarmClock, Trash2, FileSpreadsheet, Download } from "lucide-react";
 import { ColaboradorView } from "./colaborador-view";
 import { HorasExtrasView } from "./horas-extras-view";
 import { Button } from "@/components/ui/button";
