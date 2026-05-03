@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { getCargaDiaria } from "@/lib/schedule";
 import ExcelJS from "exceljs";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -232,7 +233,7 @@ export async function GET(req: NextRequest) {
   });
 
   // ─── Row 15: Column headers ───────────────────────────────────────────────
-  const colHeaders = ["Data","Ent. 1","Saí. 1","Ent. 2","Saí. 2","Normais","ExNot","Faltas","Not.","DSR","Carga","Extras","Ajuste"];
+  const colHeaders = ["Data","Ent. 1","Saí. 2","Ent. 3","Saí. 3","Normais","ExNot","Faltas","Not.","DSR","Carga","Extras","Ajuste"];
   colHeaders.forEach((h, i) => {
     const cell = ws.getCell(15, i + 1);
     cell.value = h;
@@ -243,11 +244,10 @@ export async function GET(req: NextRequest) {
   });
 
   // ─── Daily rows ───────────────────────────────────────────────────────────
-  let totalNormais = 0;   // minutes
-  let totalExtras  = 0;   // minutes
-  let totalFaltas  = 0;   // minutes
-  let totalCarga   = 0;   // minutes
-  const cargaDiaria = 7 * 60 + 20; // 7h20 default
+  let totalNormais = 0;
+  let totalExtras  = 0;
+  let totalFaltas  = 0;
+  let totalCarga   = 0;
 
   const dataRows: (string | number)[][] = [];
 
@@ -265,29 +265,26 @@ export async function GET(req: NextRequest) {
     const row: (string | number)[] = [dateLabel, "", "", "", "", "", "", "", "", "", "", "", ""];
 
     if (reg) {
-      const ent1 = toHHMM(reg.entrada ?? null);
-      const sai1 = toHHMM(reg.saidaAlmoco ?? null);
-      const ent2 = toHHMM(reg.retornoAlmoco ?? null);
-      const sai2 = toHHMM(reg.saida ?? null);
+      // Columns: Ent.1=entrada, Saí.2=saidaAlmoco, Ent.3=retornoAlmoco, Saí.3=saida
+      row[1] = toHHMM(reg.entrada ?? null);
+      row[2] = toHHMM(reg.saidaAlmoco ?? null);
+      row[3] = toHHMM(reg.retornoAlmoco ?? null);
+      row[4] = toHHMM(reg.saida ?? null);
 
-      row[1] = ent1;
-      row[2] = sai1;
-      row[3] = ent2;
-      row[4] = sai2;
-
+      const cargaDiariaMin = Math.round(getCargaDiaria(func.restaurante.nome, dayDate) * 60);
       if (reg.ocorrencia === "FALTA") {
-        row[7] = hoursToHHMM(cargaDiaria / 60);
-        totalFaltas += cargaDiaria;
+        row[7] = hoursToHHMM(cargaDiariaMin / 60);
+        totalFaltas += cargaDiariaMin;
       } else {
         const worked = reg.horasTrabalhadas ?? 0;
-        const normais = Math.min(worked, cargaDiaria / 60);
+        const normais = Math.min(worked, cargaDiariaMin / 60);
         const extras  = reg.horasExtras ?? 0;
         row[5]  = hoursToHHMM(normais);
-        row[10] = minutesToHHMM(cargaDiaria);
+        row[10] = minutesToHHMM(cargaDiariaMin);
         row[11] = extras > 0 ? hoursToHHMM(extras) : "";
         totalNormais += Math.round(normais * 60);
         totalExtras  += Math.round(extras * 60);
-        totalCarga   += cargaDiaria;
+        totalCarga   += cargaDiariaMin;
       }
     } else if (isFeria) {
       row[1] = "FÉRIAS"; row[2] = "FÉRIAS"; row[3] = "FÉRIAS"; row[4] = "FÉRIAS";

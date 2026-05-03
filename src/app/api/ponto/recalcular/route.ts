@@ -3,7 +3,6 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { detectOcorrencia, calcHoursFromPunches, getCargaDiaria } from "@/lib/schedule";
 
-// Ocorrencias that are manually set and must never be overwritten by auto-detection
 const PRESERVE_OCORRENCIA = new Set(["FOLGA", "FALTA"]);
 
 export async function POST(req: NextRequest) {
@@ -26,13 +25,12 @@ export async function POST(req: NextRequest) {
 
   let updated = 0;
   for (const rec of registros) {
-    // Records without entrada (FOLGA, FALTA, etc.) have nothing to recalculate
     if (!rec.entrada) continue;
-
-    // Never auto-overwrite manually assigned non-punch ocorrencias
     if (rec.ocorrencia && PRESERVE_OCORRENCIA.has(rec.ocorrencia)) continue;
 
     const punches: Date[] = [rec.entrada];
+    if (rec.saida1) punches.push(rec.saida1);
+    if (rec.entrada2) punches.push(rec.entrada2);
     if (rec.saidaAlmoco) punches.push(rec.saidaAlmoco);
     if (rec.retornoAlmoco) punches.push(rec.retornoAlmoco);
     if (rec.saida) punches.push(rec.saida);

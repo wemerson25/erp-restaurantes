@@ -1,23 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { detectOcorrencia, calcHoursFromPunches } from "@/lib/schedule";
+import { detectOcorrencia, calcHoursFromPunches, getCargaDiaria } from "@/lib/schedule";
 
 interface Punch {
   pis: string;
-  dateStr: string; // YYYY-MM-DD
-  timeStr: string; // HH:MM
+  dateStr: string;
+  timeStr: string;
   timestamp: number;
 }
 
 function parseAFD(text: string): Punch[] {
   const punches: Punch[] = [];
-  // Strip BOM if present, normalize line endings
   const clean = text.replace(/^﻿/, "").replace(/\r/g, "");
   for (const rawLine of clean.split("\n")) {
     const line = rawLine.trimEnd();
     if (line.length < 33) continue;
-    // Type 3 = punch record (character at position 9, 0-indexed)
     if (line[9] !== "3") continue;
     const dd   = line.substring(10, 12);
     const mm   = line.substring(12, 14);
@@ -31,6 +29,19 @@ function parseAFD(text: string): Punch[] {
     punches.push({ pis, dateStr, timeStr, timestamp: new Date(`${dateStr}T${timeStr}:00`).getTime() });
   }
   return punches;
+}
+
+/** Map a flat punch array to the 6 named DB fields */
+function punchesToFields(punches: Date[]) {
+  const n = punches.length;
+  return {
+    entrada:       punches[0]                                    ?? null,
+    saida1:        n === 6 ? punches[1]                         : null,
+    entrada2:      n === 6 ? punches[2]                         : null,
+    saidaAlmoco:   n >= 4  ? (n === 6 ? punches[3] : punches[1]) : null,
+    retornoAlmoco: n >= 4  ? (n === 6 ? punches[4] : punches[2]) : null,
+    saida:         n >= 2  ? punches[n - 1]                     : null,
+  };
 }
 
 export async function POST(req: NextRequest) {
@@ -53,7 +64,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Nenhum registro tipo 3 encontrado no arquivo" }, { status: 400 });
   }
 
-  // Group by PIS + date, sorted by time
   const groups = new Map<string, Punch[]>();
   for (const p of punches) {
     const key = `${p.pis}|${p.dateStr}`;
@@ -64,7 +74,7 @@ export async function POST(req: NextRequest) {
 
   const funcionarios = await prisma.funcionario.findMany({
     where: { pisPassep: { not: null } },
-    select: { id: true, pisPassep: true },
+    select: { id: true, pisPassep: true, restaurante: { select: { nome: true } } },
   });
   const byPis = new Map(funcionarios.map((f) => [f.pisPassep!.replace(/\D/g, ""), f]));
 
@@ -79,35 +89,18 @@ export async function POST(req: NextRequest) {
 
     const toDate = (t: string) => new Date(`${dateStr}T${t}:00`);
     const dates = list.map((p) => toDate(p.timeStr));
-
-    // Ensure even number of punches (drop last if odd — incomplete pair)
     const paired = dates.length % 2 === 0 ? dates : dates.slice(0, -1);
 
-    // Map to DB fields: entrada=first, saida=last
-    // saidaAlmoco/retornoAlmoco = middle-pair boundary (meal break)
-    // n=2: no meal; n=4: meal=(p1,p2); n=6: meal=(p3,p4)
-    const n = paired.length;
-    const entrada       = paired[0] ?? null;
-    const saidaAlmoco   = n >= 4 ? paired[n - 3] : null;
-    const retornoAlmoco = n >= 4 ? paired[n - 2] : null;
-    const saida         = n >= 2 ? paired[n - 1] : null;
+    const { entrada, saida1, entrada2, saidaAlmoco, retornoAlmoco, saida } = punchesToFields(paired);
 
     const horasTrabalhadas = calcHoursFromPunches(paired);
-    const horasExtras = Math.max(0, horasTrabalhadas - 8);
     const dataDate = new Date(`${dateStr}T00:00:00`);
-    const ocorrencia = detectOcorrencia(entrada ?? undefined, dataDate, horasTrabalhadas);
+    const restauranteNome = funcionario.restaurante.nome;
+    const carga = getCargaDiaria(restauranteNome, dataDate);
+    const horasExtras = Math.max(0, Math.round((horasTrabalhadas - carga) * 100) / 100);
+    const ocorrencia = detectOcorrencia(entrada ?? undefined, dataDate, horasTrabalhadas, restauranteNome);
 
-    const payload = {
-      funcionarioId: funcionario.id,
-      data: dataDate,
-      entrada,
-      saidaAlmoco,
-      retornoAlmoco,
-      saida,
-      horasTrabalhadas,
-      horasExtras,
-      ocorrencia,
-    };
+    const payload = { funcionarioId: funcionario.id, data: dataDate, entrada, saida1, entrada2, saidaAlmoco, retornoAlmoco, saida, horasTrabalhadas, horasExtras, ocorrencia };
 
     const existing = await prisma.registroPonto.findFirst({
       where: { funcionarioId: funcionario.id, data: dataDate },

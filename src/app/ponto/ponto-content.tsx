@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Plus, Loader2, Clock, Upload, CheckCircle2, AlertCircle, AlarmClock, Trash2, FileSpreadsheet, Download } from "lucide-react";
+import { Loader2, Clock, Upload, CheckCircle2, AlertCircle, AlarmClock, Trash2, FileSpreadsheet, Download } from "lucide-react";
 import { ColaboradorView } from "./colaborador-view";
 import { HorasExtrasView } from "./horas-extras-view";
 import { Button } from "@/components/ui/button";
@@ -9,13 +9,14 @@ import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
-import { Textarea } from "@/components/ui/textarea";
 import { formatDate, formatCurrency } from "@/lib/utils";
 
 interface Registro {
   id: string;
   data: string;
   entrada?: string;
+  saida1?: string;
+  entrada2?: string;
   saidaAlmoco?: string;
   retornoAlmoco?: string;
   saida?: string;
@@ -82,11 +83,10 @@ export function PontoContent() {
     ocorrencia: "NORMAL",
     justificativa: "",
   });
-  const [pares, setPares] = useState([
-    { entrada: "", saida: "" },
-    { entrada: "", saida: "" },
-  ]);
-  const [refeicao, setRefeicao] = useState({ enabled: false, saida: "", retorno: "" });
+  const [horarios, setHorarios] = useState({
+    entrada: "", saida1: "", entrada2: "",
+    saidaAlmoco: "", retornoAlmoco: "", saida: "",
+  });
 
   const fetchRegistros = useCallback(async () => {
     setLoading(true);
@@ -170,8 +170,7 @@ export function PontoContent() {
 
   function resetModal() {
     setForm({ funcionarioId: "", data: new Date().toISOString().slice(0, 10), ocorrencia: "NORMAL", justificativa: "" });
-    setPares([{ entrada: "", saida: "" }, { entrada: "", saida: "" }]);
-    setRefeicao({ enabled: false, saida: "", retorno: "" });
+    setHorarios({ entrada: "", saida1: "", entrada2: "", saidaAlmoco: "", retornoAlmoco: "", saida: "" });
     setError("");
   }
 
@@ -180,20 +179,16 @@ export function PontoContent() {
     setError("");
     setSaving(true);
     try {
-      const batidas = pares
-        .flatMap((p) => [
-          p.entrada ? `${form.data}T${p.entrada}:00` : null,
-          p.saida ? `${form.data}T${p.saida}:00` : null,
-        ])
-        .filter(Boolean) as string[];
-
+      const toISO = (t: string) => t ? `${form.data}T${t}:00` : undefined;
       const body = {
         funcionarioId: form.funcionarioId,
         data: form.data,
-        batidas,
-        refeicao: refeicao.enabled && refeicao.saida && refeicao.retorno
-          ? { saida: `${form.data}T${refeicao.saida}:00`, retorno: `${form.data}T${refeicao.retorno}:00` }
-          : undefined,
+        entrada:       toISO(horarios.entrada),
+        saida1:        toISO(horarios.saida1),
+        entrada2:      toISO(horarios.entrada2),
+        saidaAlmoco:   toISO(horarios.saidaAlmoco),
+        retornoAlmoco: toISO(horarios.retornoAlmoco),
+        saida:         toISO(horarios.saida),
         ocorrencia: form.ocorrencia,
         justificativa: form.justificativa || undefined,
       };
@@ -393,10 +388,12 @@ export function PontoContent() {
                     <th className="px-4 py-3 text-left font-semibold text-gray-600">Data</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-600">Funcionário</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-600">Restaurante</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600">Entrada</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600">Saída Almoço</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600">Retorno</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600">Saída</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-600">E1</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-600">S1</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-600">E2</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-600">S2</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-600">E3</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-600">S3</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-600">H. Trabalhadas</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-600">H. Extras</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-600">Ocorrência</th>
@@ -417,6 +414,8 @@ export function PontoContent() {
                         </td>
                         <td className="px-4 py-3 text-gray-600">{r.funcionario.restaurante.nome}</td>
                         <td className="px-4 py-3 text-gray-700 font-mono">{fmt(r.entrada)}</td>
+                        <td className="px-4 py-3 text-gray-500 font-mono">{fmt(r.saida1)}</td>
+                        <td className="px-4 py-3 text-gray-500 font-mono">{fmt(r.entrada2)}</td>
                         <td className="px-4 py-3 text-gray-600 font-mono">{fmt(r.saidaAlmoco)}</td>
                         <td className="px-4 py-3 text-gray-600 font-mono">{fmt(r.retornoAlmoco)}</td>
                         <td className="px-4 py-3 text-gray-700 font-mono">{fmt(r.saida)}</td>
@@ -616,81 +615,30 @@ export function PontoContent() {
             <Input type="date" value={form.data} onChange={(e) => setForm((p) => ({ ...p, data: e.target.value }))} required />
           </div>
 
-          {/* Pares de batidas dinâmicos */}
+          {/* Batidas — 6 campos fixos */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-medium text-gray-600">Batidas</label>
-              <span className="text-xs text-gray-400">{pares.length * 2} campos</span>
-            </div>
-            {pares.map((par, i) => (
-              <div key={i} className="grid grid-cols-2 gap-2 items-end">
-                <div>
+            <p className="text-xs font-medium text-gray-600">Batidas</p>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { key: "entrada",       label: "Entrada 1" },
+                { key: "saida1",        label: "Saída 1" },
+                { key: "entrada2",      label: "Entrada 2" },
+                { key: "saidaAlmoco",   label: "Saída 2", note: "refeição" },
+                { key: "retornoAlmoco", label: "Entrada 3", note: "refeição" },
+                { key: "saida",         label: "Saída 3" },
+              ] as const).map(({ key, label, note }) => (
+                <div key={key}>
                   <label className="block text-xs text-gray-500 mb-1">
-                    {i === 0 ? "Entrada" : i === 1 ? "2ª Entrada" : "3ª Entrada"}
+                    {label}{note && <span className="text-orange-500 ml-1">({note})</span>}
                   </label>
                   <Input
                     type="time"
-                    value={par.entrada}
-                    onChange={(e) => setPares((prev) => prev.map((p, j) => j === i ? { ...p, entrada: e.target.value } : p))}
+                    value={horarios[key]}
+                    onChange={(e) => setHorarios((prev) => ({ ...prev, [key]: e.target.value }))}
                   />
                 </div>
-                <div className="flex gap-1.5 items-end">
-                  <div className="flex-1">
-                    <label className="block text-xs text-gray-500 mb-1">
-                      {i === 0 ? "Saída" : i === 1 ? "2ª Saída" : "3ª Saída"}
-                    </label>
-                    <Input
-                      type="time"
-                      value={par.saida}
-                      onChange={(e) => setPares((prev) => prev.map((p, j) => j === i ? { ...p, saida: e.target.value } : p))}
-                    />
-                  </div>
-                  {i >= 2 && (
-                    <button
-                      type="button"
-                      onClick={() => setPares((prev) => prev.filter((_, j) => j !== i))}
-                      className="h-10 px-2 text-gray-400 hover:text-red-500 transition-colors"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-            {pares.length < 3 && (
-              <button
-                type="button"
-                onClick={() => setPares((prev) => [...prev, { entrada: "", saida: "" }])}
-                className="flex items-center gap-1.5 text-xs text-red-600 hover:text-red-700 font-medium mt-1 transition-colors"
-              >
-                <Plus size={13} /> Adicionar par de batidas
-              </button>
-            )}
-          </div>
-
-          {/* Intervalo de Refeição */}
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={refeicao.enabled}
-                onChange={(e) => setRefeicao((r) => ({ ...r, enabled: e.target.checked }))}
-                className="rounded border-gray-300 text-red-600 focus:ring-red-600"
-              />
-              <span className="text-xs font-medium text-gray-600">Registrar intervalo de refeição</span>
-            </label>
-            {refeicao.enabled && (
-              <div className="grid grid-cols-2 gap-2 pl-5">
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Saída p/ Refeição</label>
-                  <Input type="time" value={refeicao.saida} onChange={(e) => setRefeicao((r) => ({ ...r, saida: e.target.value }))} />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Retorno</label>
-                  <Input type="time" value={refeicao.retorno} onChange={(e) => setRefeicao((r) => ({ ...r, retorno: e.target.value }))} />
-                </div>
-              </div>
-            )}
+              ))}
+            </div>
           </div>
 
           <div>
@@ -705,7 +653,7 @@ export function PontoContent() {
           {form.ocorrencia !== "NORMAL" && (
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Justificativa</label>
-              <Textarea value={form.justificativa} onChange={(e) => setForm((p) => ({ ...p, justificativa: e.target.value }))} rows={2} />
+              <Input value={form.justificativa} onChange={(e) => setForm((p) => ({ ...p, justificativa: e.target.value }))} />
             </div>
           )}
           {error && <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">{error}</div>}

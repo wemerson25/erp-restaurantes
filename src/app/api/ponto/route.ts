@@ -39,64 +39,45 @@ export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
-  const data = await req.json();
+  const body = await req.json();
+  const toDate = (v: unknown) => (v ? new Date(v as string) : null);
 
-  // Parse work block punches
-  const batidas: string[] = (data.batidas ?? []).filter(Boolean);
-  let punchDates: Date[] = [];
+  const dataDate = new Date(body.data);
+  const e1 = toDate(body.entrada);
+  const s1 = toDate(body.saida1);
+  const e2 = toDate(body.entrada2);
+  const s2 = toDate(body.saidaAlmoco);
+  const e3 = toDate(body.retornoAlmoco);
+  const s3 = toDate(body.saida);
 
-  if (batidas.length >= 2) {
-    punchDates = batidas.map((b) => new Date(b));
-  } else {
-    // Legacy 4-field format
-    const fields = [data.entrada, data.saidaAlmoco, data.retornoAlmoco, data.saida].filter(Boolean);
-    punchDates = fields.map((f) => new Date(f));
-  }
+  const punches = [e1, s1, e2, s2, e3, s3].filter((d): d is Date => d !== null);
+  const horasTrabalhadas = calcHoursFromPunches(punches);
 
-  const paired = punchDates.length % 2 === 0 ? punchDates : punchDates.slice(0, -1);
-  const n = paired.length;
-
-  // Explicit meal break (from form)
-  const refeicaoSaida = data.refeicao?.saida ? new Date(data.refeicao.saida) : null;
-  const refeicaoRetorno = data.refeicao?.retorno ? new Date(data.refeicao.retorno) : null;
-
-  // Hours: sum all work pairs, subtract meal break if provided
-  let horasTrabalhadas = calcHoursFromPunches(paired);
-  if (refeicaoSaida && refeicaoRetorno) {
-    const mealH = (refeicaoRetorno.getTime() - refeicaoSaida.getTime()) / 3600000;
-    horasTrabalhadas = Math.max(0, Math.round((horasTrabalhadas - mealH) * 100) / 100);
-  }
-  const dataDate = new Date(data.data);
   const funcionario = await prisma.funcionario.findUnique({
-    where: { id: data.funcionarioId },
+    where: { id: body.funcionarioId },
     select: { restaurante: { select: { nome: true } } },
   });
-  const carga = getCargaDiaria(funcionario?.restaurante?.nome ?? "", dataDate);
+  const restauranteNome = funcionario?.restaurante?.nome ?? "";
+  const carga = getCargaDiaria(restauranteNome, dataDate);
   const horasExtras = Math.max(0, Math.round((horasTrabalhadas - carga) * 100) / 100);
-
-  // DB field mapping
-  // entrada = first punch, saida = last punch
-  // saidaAlmoco / retornoAlmoco = explicit meal break OR middle-pair boundary
-  const entrada = paired[0] ?? null;
-  const saida = n >= 2 ? paired[n - 1] : null;
-  const saidaAlmoco = refeicaoSaida ?? (n >= 4 ? paired[n - 3] : null);
-  const retornoAlmoco = refeicaoRetorno ?? (n >= 4 ? paired[n - 2] : null);
-  const ocorrencia = data.ocorrencia && data.ocorrencia !== "NORMAL"
-    ? data.ocorrencia
-    : detectOcorrencia(entrada ?? undefined, dataDate, horasTrabalhadas, funcionario?.restaurante?.nome ?? "");
+  const ocorrencia = body.ocorrencia && body.ocorrencia !== "NORMAL"
+    ? body.ocorrencia
+    : detectOcorrencia(e1 ?? undefined, dataDate, horasTrabalhadas, restauranteNome);
 
   const registro = await prisma.registroPonto.create({
     data: {
-      funcionarioId: data.funcionarioId,
+      funcionarioId: body.funcionarioId,
       data: dataDate,
-      entrada,
-      saidaAlmoco,
-      retornoAlmoco,
-      saida,
+      entrada: e1,
+      saida1: s1,
+      entrada2: e2,
+      saidaAlmoco: s2,
+      retornoAlmoco: e3,
+      saida: s3,
       horasTrabalhadas,
       horasExtras,
       ocorrencia,
-      justificativa: data.justificativa,
+      justificativa: body.justificativa,
     },
     include: {
       funcionario: { select: { nome: true, matricula: true } },

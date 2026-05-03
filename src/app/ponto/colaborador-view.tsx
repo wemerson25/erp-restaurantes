@@ -11,6 +11,8 @@ interface Registro {
   id: string;
   data: string;
   entrada?: string;
+  saida1?: string;
+  entrada2?: string;
   saidaAlmoco?: string;
   retornoAlmoco?: string;
   saida?: string;
@@ -348,10 +350,12 @@ export function ColaboradorView({ funcionarios, filterMonth }: Props) {
                   <tr className="bg-gray-50 border-b border-gray-200">
                     <th className="px-3 py-3 text-left font-semibold text-gray-600 w-24">Data</th>
                     <th className="px-3 py-3 text-left font-semibold text-gray-600 w-12">Dia</th>
-                    <th className="px-3 py-3 text-left font-semibold text-gray-600">Entrada</th>
-                    <th className="px-3 py-3 text-left font-semibold text-gray-600">S. Almoço</th>
-                    <th className="px-3 py-3 text-left font-semibold text-gray-600">Retorno</th>
-                    <th className="px-3 py-3 text-left font-semibold text-gray-600">Saída</th>
+                    <th className="px-3 py-3 text-left font-semibold text-gray-600">E1</th>
+                    <th className="px-3 py-3 text-left font-semibold text-gray-600">S1</th>
+                    <th className="px-3 py-3 text-left font-semibold text-gray-600">E2</th>
+                    <th className="px-3 py-3 text-left font-semibold text-gray-600">S2</th>
+                    <th className="px-3 py-3 text-left font-semibold text-gray-600">E3</th>
+                    <th className="px-3 py-3 text-left font-semibold text-gray-600">S3</th>
                     <th className="px-3 py-3 text-left font-semibold text-gray-600">Horas</th>
                     <th className="px-3 py-3 text-left font-semibold text-gray-600">Status</th>
                     <th className="px-3 py-3" />
@@ -373,6 +377,8 @@ export function ColaboradorView({ funcionarios, filterMonth }: Props) {
                           <td className="px-3 py-2.5 font-mono text-xs text-gray-600">{dateFormatted}</td>
                           <td className={`px-3 py-2.5 text-xs font-semibold ${isWeekend ? "text-blue-500" : "text-gray-500"}`}>{dayOfWeek}</td>
                           <td className="px-3 py-2.5 font-mono text-gray-700">{fmt(r.entrada)}</td>
+                          <td className="px-3 py-2.5 font-mono text-gray-400">{fmt(r.saida1)}</td>
+                          <td className="px-3 py-2.5 font-mono text-gray-400">{fmt(r.entrada2)}</td>
                           <td className="px-3 py-2.5 font-mono text-gray-500">{fmt(r.saidaAlmoco)}</td>
                           <td className="px-3 py-2.5 font-mono text-gray-500">{fmt(r.retornoAlmoco)}</td>
                           <td className="px-3 py-2.5 font-mono text-gray-700">{fmt(r.saida)}</td>
@@ -396,7 +402,7 @@ export function ColaboradorView({ funcionarios, filterMonth }: Props) {
                         <tr key={day} className="bg-indigo-50 hover:bg-indigo-100 transition-all">
                           <td className="px-3 py-2.5 font-mono text-xs text-gray-600">{dateFormatted}</td>
                           <td className={`px-3 py-2.5 text-xs font-semibold ${isWeekend ? "text-blue-500" : "text-gray-500"}`}>{dayOfWeek}</td>
-                          <td colSpan={5} className="px-3 py-2.5 text-indigo-700 text-sm">Férias — {info.ferias.diasCorridos} dias corridos</td>
+                          <td colSpan={7} className="px-3 py-2.5 text-indigo-700 text-sm">Férias — {info.ferias.diasCorridos} dias corridos</td>
                           <td className="px-3 py-2.5"><Badge variant="secondary" className="text-xs bg-indigo-100 text-indigo-700 border-0">Férias</Badge></td>
                           <td className="px-3 py-2.5" />
                         </tr>
@@ -408,7 +414,7 @@ export function ColaboradorView({ funcionarios, filterMonth }: Props) {
                         <tr key={day} className="bg-orange-50 hover:bg-orange-100 transition-all">
                           <td className="px-3 py-2.5 font-mono text-xs text-gray-600">{dateFormatted}</td>
                           <td className={`px-3 py-2.5 text-xs font-semibold ${isWeekend ? "text-blue-500" : "text-gray-500"}`}>{dayOfWeek}</td>
-                          <td colSpan={5} className="px-3 py-2.5 text-orange-800 text-sm">
+                          <td colSpan={7} className="px-3 py-2.5 text-orange-800 text-sm">
                             {ausenciaTipoLabel[a.tipo] ?? a.tipo}
                             {a.motivo && <span className="text-orange-600 text-xs ml-2">— {a.motivo}</span>}
                           </td>
@@ -421,7 +427,7 @@ export function ColaboradorView({ funcionarios, filterMonth }: Props) {
                       <tr key={day} className={`${isWeekend ? "bg-gray-50/50" : ""} hover:bg-gray-50 transition-all`}>
                         <td className="px-3 py-2.5 font-mono text-xs text-gray-400">{dateFormatted}</td>
                         <td className={`px-3 py-2.5 text-xs font-semibold ${isWeekend ? "text-blue-400" : "text-gray-400"}`}>{dayOfWeek}</td>
-                        <td colSpan={6} className="px-3 py-2.5 text-gray-300 text-xs italic">Sem registro</td>
+                        <td colSpan={8} className="px-3 py-2.5 text-gray-300 text-xs italic">Sem registro</td>
                         <td className="px-3 py-2.5" />
                       </tr>
                     );

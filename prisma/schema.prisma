@@ -86,6 +86,8 @@ model RegistroPonto {
   funcionarioId    String
   data             DateTime
   entrada          DateTime?
+  saida1           DateTime?
+  entrada2         DateTime?
   saidaAlmoco      DateTime?
   retornoAlmoco    DateTime?
   saida            DateTime?
