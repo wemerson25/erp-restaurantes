@@ -140,14 +140,17 @@ export function PontoContent() {
       const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: "array", cellDates: false });
 
       // Parse every sheet and merge records
+      const sheetDebug: string[] = [];
       const records = wb.SheetNames.flatMap((sheetName: string) => {
         const ws = wb.Sheets[sheetName];
         const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as unknown[][];
-        return parseExcelPonto(rows);
+        const parsed = parseExcelPonto(rows);
+        sheetDebug.push(`"${sheetName}": ${parsed.length}`);
+        return parsed;
       });
 
       if (records.length === 0) {
-        setExcelError("Nenhum registro encontrado na planilha");
+        setExcelError(`Nenhum registro encontrado. Abas: ${sheetDebug.join(", ") || "nenhuma"}`);
         return;
       }
 

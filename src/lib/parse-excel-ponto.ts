@@ -66,11 +66,21 @@ function isCartaoPonto(rows: unknown[][]): boolean {
 function parseCartaoPonto(rows: unknown[][]): ParsedRecord[] {
   let nomeFuncionario = "";
   let dataStartRow = -1;
+  let tOff = 0; // 1 when a "Dia" (day-of-week) column sits between date and time columns
 
   for (let i = 0; i < rows.length; i++) {
-    const a = cellStr(rows[i], 0).toLowerCase();
-    if (a === "nome") nomeFuncionario = cellStr(rows[i], 1);
-    if (a === "data") { dataStartRow = i + 2; break; }
+    const a = cellStr(rows[i], 0).toLowerCase().replace(/:$/, "").trim();
+    if (a === "nome" || a === "funcionario" || a === "colaborador") {
+      // Value may be in col 1, or inline ("Nome: WEMERSON")
+      nomeFuncionario = cellStr(rows[i], 1) || cellStr(rows[i], 0).replace(/^[^:]+:\s*/i, "").trim();
+    }
+    if (a === "data" || a.startsWith("dat")) {
+      // Detect an extra "Dia" column (day-of-week label) that shifts time columns right by 1
+      const c1 = cellStr(rows[i], 1).toLowerCase().trim();
+      if (c1 === "dia" || c1.includes("semana")) tOff = 1;
+      dataStartRow = i + 1;
+      break;
+    }
   }
 
   if (!nomeFuncionario || dataStartRow < 0) return [];
@@ -82,14 +92,16 @@ function parseCartaoPonto(rows: unknown[][]): ParsedRecord[] {
     const dateStr = parseDate(row[0]);
     if (!dateStr) continue;
 
-    const b1 = cellStr(row, 1).toLowerCase().replace(/[*^]+$/, "").trim();
-    if (b1 === "folga") { records.push({ nomeFuncionario, dateStr, tipo: "FOLGA" }); continue; }
-    if (b1.startsWith("atesta")) { records.push({ nomeFuncionario, dateStr, tipo: "ATESTADO" }); continue; }
-    if (SKIP_VALUES.has(b1)) continue;
+    // Annotation column: use col 1+tOff (time slot col), fall back to col 1
+    const ann = (cellStr(row, 1 + tOff) || cellStr(row, 1)).toLowerCase().replace(/[*^]+$/, "").trim();
+
+    if (ann === "folga") { records.push({ nomeFuncionario, dateStr, tipo: "FOLGA" }); continue; }
+    if (ann.startsWith("atesta")) { records.push({ nomeFuncionario, dateStr, tipo: "ATESTADO" }); continue; }
+    if (SKIP_VALUES.has(ann)) continue;
 
     const tempos = {
-      e1: parseTime(row[1]), s1: parseTime(row[2]), e2: parseTime(row[3]),
-      s2: parseTime(row[4]), e3: parseTime(row[5]), s3: parseTime(row[6]),
+      e1: parseTime(row[1 + tOff]), s1: parseTime(row[2 + tOff]), e2: parseTime(row[3 + tOff]),
+      s2: parseTime(row[4 + tOff]), e3: parseTime(row[5 + tOff]), s3: parseTime(row[6 + tOff]),
     };
     if (!tempos.e1 && !tempos.s3) continue;
     records.push({ nomeFuncionario, dateStr, tempos });
