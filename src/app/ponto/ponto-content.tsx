@@ -67,6 +67,7 @@ export function PontoContent() {
   const [excelLoading, setExcelLoading] = useState(false);
   const [excelResult, setExcelResult] = useState<AFDResult | null>(null);
   const [excelError, setExcelError] = useState("");
+  const [excelProgress, setExcelProgress] = useState<{ current: number; total: number } | null>(null);
   const [filterMonth, setFilterMonth] = useState(() => {
     const d = new Date();
     d.setDate(1);
@@ -123,22 +124,53 @@ export function PontoContent() {
     if (!file) return;
     setExcelError("");
     setExcelResult(null);
+    setExcelProgress(null);
     setExcelLoading(true);
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/ponto/excel", { method: "POST", body: form });
-      const data = await res.json();
-      if (!res.ok) {
-        setExcelError(data.error ?? "Erro ao importar Excel");
+      // Parse file in the browser — avoids Vercel's 4.5MB upload limit
+      const [{ parseExcelPonto }, XLSX] = await Promise.all([
+        import("@/lib/parse-excel-ponto"),
+        import("xlsx"),
+      ]);
+
+      const arrayBuffer = await file.arrayBuffer();
+      const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: "array", cellDates: false });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: "" }) as unknown[][];
+      const records = parseExcelPonto(rows);
+
+      if (records.length === 0) {
+        setExcelError("Nenhum registro encontrado na planilha");
         return;
       }
-      setExcelResult(data);
+
+      const CHUNK_SIZE = 500;
+      const totalChunks = Math.ceil(records.length / CHUNK_SIZE);
+      let totalImported = 0, totalUpdated = 0;
+      const allUnmatched = new Set<string>();
+
+      for (let i = 0; i < records.length; i += CHUNK_SIZE) {
+        setExcelProgress({ current: Math.floor(i / CHUNK_SIZE) + 1, total: totalChunks });
+        const chunk = records.slice(i, i + CHUNK_SIZE);
+        const res = await fetch("/api/ponto/excel/batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ records: chunk }),
+        });
+        const data = await res.json();
+        if (!res.ok) { setExcelError(data.error ?? "Erro ao importar lote"); return; }
+        totalImported += data.imported ?? 0;
+        totalUpdated  += data.updated  ?? 0;
+        (data.unmatched ?? []).forEach((u: string) => allUnmatched.add(u));
+      }
+
+      setExcelResult({ imported: totalImported, updated: totalUpdated, total: totalImported + totalUpdated, unmatched: Array.from(allUnmatched) });
       fetchRegistros();
-    } catch {
-      setExcelError("Erro de conexão");
+    } catch (err) {
+      setExcelError(err instanceof Error ? err.message : "Erro ao processar arquivo");
     } finally {
       setExcelLoading(false);
+      setExcelProgress(null);
       if (excelInputRef.current) excelInputRef.current.value = "";
     }
   }
@@ -471,13 +503,30 @@ export function PontoContent() {
           </a>
 
           <div
-            className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center cursor-pointer hover:border-green-400 hover:bg-green-50/30 transition-colors"
-            onClick={() => excelInputRef.current?.click()}
+            className={`border-2 border-dashed border-gray-200 rounded-xl p-8 text-center transition-colors ${excelLoading ? "cursor-default" : "cursor-pointer hover:border-green-400 hover:bg-green-50/30"}`}
+            onClick={() => !excelLoading && excelInputRef.current?.click()}
           >
             {excelLoading ? (
-              <div className="flex flex-col items-center gap-2 text-gray-500">
+              <div className="flex flex-col items-center gap-3 text-gray-500">
                 <Loader2 size={28} className="animate-spin text-green-600" />
-                <span className="text-sm font-medium">Processando planilha...</span>
+                {excelProgress ? (
+                  <>
+                    <span className="text-sm font-medium">
+                      Importando lote {excelProgress.current} de {excelProgress.total}…
+                    </span>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${Math.round((excelProgress.current / excelProgress.total) * 100)}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-gray-400">
+                      {Math.round((excelProgress.current / excelProgress.total) * 100)}%
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-sm font-medium">Lendo arquivo…</span>
+                )}
               </div>
             ) : (
               <div className="flex flex-col items-center gap-2 text-gray-400">
