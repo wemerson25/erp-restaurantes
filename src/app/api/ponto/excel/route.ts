@@ -4,6 +4,8 @@ import { getSession } from "@/lib/auth";
 import { detectOcorrencia, calcHoursFromPunches, getCargaDiaria } from "@/lib/schedule";
 import * as XLSX from "xlsx";
 
+export const maxDuration = 60;
+
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 const SKIP_VALUES = new Set(["folga", "ferias", "férias", "atesta", "atestad", "atestado", "falta", "ausen", "mat", "pat", "acid", ""]);
@@ -84,9 +86,7 @@ function isCartaoPonto(rows: unknown[][]): boolean {
 interface ParsedRecord {
   nomeFuncionario: string;
   dateStr: string;
-  // For cartão ponto: column-mapped fields (positional, not filtered)
   tempos?: { e1: string|null; s1: string|null; e2: string|null; s2: string|null; e3: string|null; s3: string|null };
-  // For simple format: flat chronological list
   batidas?: string[];
   tipo?: "FOLGA" | "ATESTADO";
 }
@@ -110,7 +110,6 @@ function parseCartaoPonto(rows: unknown[][]): ParsedRecord[] {
     const dateStr = parseDate(row[0]);
     if (!dateStr) break;
 
-    // Columns: B(1)=E1, C(2)=S1, D(3)=E2, E(4)=S2, F(5)=E3, G(6)=S3
     const b1 = cellStr(row, 1).toLowerCase().replace(/[*^]+$/, "").trim();
     if (b1 === "folga") {
       records.push({ nomeFuncionario, dateStr, tipo: "FOLGA" });
@@ -223,6 +222,20 @@ export async function GET() {
 
 // ─── POST — import Excel file ────────────────────────────────────────────────
 
+type PontoPayload = {
+  funcionarioId: string;
+  data: Date;
+  entrada: Date | null;
+  saida1: Date | null;
+  entrada2: Date | null;
+  saidaAlmoco: Date | null;
+  retornoAlmoco: Date | null;
+  saida: Date | null;
+  horasTrabalhadas: number;
+  horasExtras: number;
+  ocorrencia: string;
+};
+
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
@@ -251,57 +264,49 @@ export async function POST(req: NextRequest) {
   });
   const byName = new Map(funcionarios.map((f) => [normalizeName(f.nome), f]));
 
-  let imported = 0;
-  let updated  = 0;
-  const unmatched = new Set<string>();
-  const errors: string[] = [];
-
   function resolveFuncionario(nome: string) {
     const norm = normalizeName(nome);
     return byName.get(norm) ?? [...byName.entries()].find(([k]) => k.includes(norm) || norm.includes(k))?.[1];
   }
 
-  // Pre-pass: collect consecutive ATESTADO dates per employee
+  const unmatched = new Set<string>();
+  const errors: string[] = [];
+
+  // ─── Phase 1: Build all payloads (no DB) ─────────────────────────────────
+
+  const payloads: PontoPayload[] = [];
   const atestadoGroups = new Map<string, { nome: string; dates: string[] }>();
+
   for (const rec of records) {
-    if (rec.tipo !== "ATESTADO") continue;
     const funcionario = resolveFuncionario(rec.nomeFuncionario);
     if (!funcionario) { unmatched.add(rec.nomeFuncionario); continue; }
-    if (!atestadoGroups.has(funcionario.id)) atestadoGroups.set(funcionario.id, { nome: rec.nomeFuncionario, dates: [] });
-    atestadoGroups.get(funcionario.id)!.dates.push(rec.dateStr);
-  }
 
-  // Main loop: FOLGA + punch records
-  for (const rec of records) {
-    if (rec.tipo === "ATESTADO") continue;
-
-    const funcionario = resolveFuncionario(rec.nomeFuncionario);
-    if (!funcionario) { unmatched.add(rec.nomeFuncionario); continue; }
+    if (rec.tipo === "ATESTADO") {
+      if (!atestadoGroups.has(funcionario.id)) atestadoGroups.set(funcionario.id, { nome: rec.nomeFuncionario, dates: [] });
+      atestadoGroups.get(funcionario.id)!.dates.push(rec.dateStr);
+      continue;
+    }
 
     const dataDate = new Date(`${rec.dateStr}T00:00:00`);
 
     if (rec.tipo === "FOLGA") {
-      try {
-        const existing = await prisma.registroPonto.findFirst({ where: { funcionarioId: funcionario.id, data: dataDate } });
-        const payload = { funcionarioId: funcionario.id, data: dataDate, entrada: null, saida1: null, entrada2: null, saidaAlmoco: null, retornoAlmoco: null, saida: null, horasTrabalhadas: 0, horasExtras: 0, ocorrencia: "FOLGA" };
-        if (existing) { await prisma.registroPonto.update({ where: { id: existing.id }, data: payload }); updated++; }
-        else { await prisma.registroPonto.create({ data: payload }); imported++; }
-      } catch { errors.push(`${rec.nomeFuncionario} / ${rec.dateStr}: erro ao salvar folga`); }
+      payloads.push({
+        funcionarioId: funcionario.id, data: dataDate,
+        entrada: null, saida1: null, entrada2: null, saidaAlmoco: null, retornoAlmoco: null, saida: null,
+        horasTrabalhadas: 0, horasExtras: 0, ocorrencia: "FOLGA",
+      });
       continue;
     }
 
-    // Build 6 named fields
     let entrada: Date | null = null, saida1: Date | null = null, entrada2: Date | null = null;
     let saidaAlmoco: Date | null = null, retornoAlmoco: Date | null = null, saida: Date | null = null;
 
     if (rec.tempos) {
-      // Cartão Ponto: column-positional mapping
       const t = rec.tempos;
       const toD = (s: string | null) => s ? new Date(`${rec.dateStr}T${s}:00`) : null;
       entrada = toD(t.e1); saida1 = toD(t.s1); entrada2 = toD(t.e2);
       saidaAlmoco = toD(t.s2); retornoAlmoco = toD(t.e3); saida = toD(t.s3);
     } else if (rec.batidas && rec.batidas.length > 0) {
-      // Simple format: chronological flat list
       const dates = rec.batidas.map(t => new Date(`${rec.dateStr}T${t}:00`));
       const paired = dates.length % 2 === 0 ? dates : dates.slice(0, -1);
       const f = punchesToFields(paired);
@@ -315,16 +320,70 @@ export async function POST(req: NextRequest) {
     const horasExtras = Math.max(0, Math.round((horasTrabalhadas - carga) * 100) / 100);
     const ocorrencia = detectOcorrencia(entrada ?? undefined, dataDate, horasTrabalhadas, funcionario.restaurante.nome);
 
-    const payload = { funcionarioId: funcionario.id, data: dataDate, entrada, saida1, entrada2, saidaAlmoco, retornoAlmoco, saida, horasTrabalhadas, horasExtras, ocorrencia };
-
-    try {
-      const existing = await prisma.registroPonto.findFirst({ where: { funcionarioId: funcionario.id, data: dataDate } });
-      if (existing) { await prisma.registroPonto.update({ where: { id: existing.id }, data: payload }); updated++; }
-      else { await prisma.registroPonto.create({ data: payload }); imported++; }
-    } catch { errors.push(`${rec.nomeFuncionario} / ${rec.dateStr}: erro ao salvar`); }
+    payloads.push({ funcionarioId: funcionario.id, data: dataDate, entrada, saida1, entrada2, saidaAlmoco, retornoAlmoco, saida, horasTrabalhadas, horasExtras, ocorrencia });
   }
 
-  // Post-loop: save grouped ATESTADO spans
+  // ─── Phase 2: Batch DB operations for RegistroPonto ──────────────────────
+
+  let imported = 0;
+  let updated = 0;
+
+  if (payloads.length > 0) {
+    const funcionarioIds = [...new Set(payloads.map(p => p.funcionarioId))];
+    const timestamps = payloads.map(p => p.data.getTime());
+    const minDate = new Date(Math.min(...timestamps));
+    const maxDate = new Date(Math.max(...timestamps));
+
+    // Single query to find all existing records in the date range
+    const existingRecords = await prisma.registroPonto.findMany({
+      where: { funcionarioId: { in: funcionarioIds }, data: { gte: minDate, lte: maxDate } },
+      select: { id: true, funcionarioId: true, data: true },
+    });
+
+    const existingMap = new Map(
+      existingRecords.map(r => [`${r.funcionarioId}|${r.data.toISOString()}`, r.id])
+    );
+
+    const toCreate: PontoPayload[] = [];
+    const toUpdate: Array<{ id: string; payload: PontoPayload }> = [];
+
+    for (const p of payloads) {
+      const key = `${p.funcionarioId}|${p.data.toISOString()}`;
+      const existingId = existingMap.get(key);
+      if (existingId) {
+        toUpdate.push({ id: existingId, payload: p });
+      } else {
+        toCreate.push(p);
+      }
+    }
+
+    // createMany in batches of 100 to stay within SQLite parameter limits
+    const CREATE_BATCH = 100;
+    for (let i = 0; i < toCreate.length; i += CREATE_BATCH) {
+      try {
+        const batch = toCreate.slice(i, i + CREATE_BATCH);
+        await prisma.registroPonto.createMany({ data: batch });
+        imported += batch.length;
+      } catch (e) {
+        errors.push(`Erro ao criar registros (lote ${Math.floor(i / CREATE_BATCH) + 1}): ${e instanceof Error ? e.message : "unknown"}`);
+      }
+    }
+
+    // Parallel updates in chunks of 50
+    const UPDATE_CHUNK = 50;
+    for (let i = 0; i < toUpdate.length; i += UPDATE_CHUNK) {
+      await Promise.all(
+        toUpdate.slice(i, i + UPDATE_CHUNK).map(({ id, payload }) =>
+          prisma.registroPonto.update({ where: { id }, data: payload })
+            .then(() => { updated++; })
+            .catch(e => { errors.push(`Erro ao atualizar ${id}: ${e instanceof Error ? e.message : "unknown"}`); })
+        )
+      );
+    }
+  }
+
+  // ─── Phase 3: Atestados ───────────────────────────────────────────────────
+
   for (const [funcionarioId, { nome, dates }] of atestadoGroups) {
     const sortedDates = [...dates].sort();
     const rangeStart = new Date(`${sortedDates[0]}T00:00:00`);
