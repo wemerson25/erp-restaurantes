@@ -128,15 +128,18 @@ export function PontoContent() {
     setExcelLoading(true);
     try {
       // Parse file in the browser — avoids Vercel's 4.5MB upload limit
-      const [{ parseExcelPonto }, XLSX] = await Promise.all([
+      const [{ parseExcelPonto }, xlsxMod] = await Promise.all([
         import("@/lib/parse-excel-ponto"),
         import("xlsx"),
       ]);
+      // Handle CommonJS default export interop
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const XLSX: any = (xlsxMod as any).default ?? xlsxMod;
 
       const arrayBuffer = await file.arrayBuffer();
       const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: "array", cellDates: false });
       const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: "" }) as unknown[][];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as unknown[][];
       const records = parseExcelPonto(rows);
 
       if (records.length === 0) {

@@ -33,6 +33,7 @@ type PontoPayload = {
 };
 
 export async function POST(req: NextRequest) {
+  try {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
@@ -130,15 +131,16 @@ export async function POST(req: NextRequest) {
       else toCreate.push(p);
     }
 
-    const CREATE_BATCH = 100;
-    for (let i = 0; i < toCreate.length; i += CREATE_BATCH) {
-      try {
-        const batch = toCreate.slice(i, i + CREATE_BATCH);
-        await prisma.registroPonto.createMany({ data: batch });
-        imported += batch.length;
-      } catch (e) {
-        errors.push(`Erro ao criar lote: ${e instanceof Error ? e.message : "unknown"}`);
-      }
+    // Use individual creates in parallel (createMany may not be fully supported by LibSQL adapter)
+    const PARALLEL = 50;
+    for (let i = 0; i < toCreate.length; i += PARALLEL) {
+      await Promise.all(
+        toCreate.slice(i, i + PARALLEL).map(payload =>
+          prisma.registroPonto.create({ data: payload })
+            .then(() => { imported++; })
+            .catch(e => { errors.push(`Erro ao criar: ${e instanceof Error ? e.message : "unknown"}`); })
+        )
+      );
     }
 
     const UPDATE_CHUNK = 50;
@@ -180,4 +182,8 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ imported, updated, unmatched: Array.from(unmatched), errors, total: imported + updated });
+  } catch (e) {
+    console.error("[POST /api/ponto/excel/batch]", e);
+    return NextResponse.json({ error: "Erro interno", detail: e instanceof Error ? e.message : String(e) }, { status: 500 });
+  }
 }
