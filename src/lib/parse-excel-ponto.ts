@@ -1,4 +1,4 @@
-// Shared Excel parsing — runs in both browser and server (no Node.js APIs)
+﻿// Shared Excel parsing — runs in both browser and server (no Node.js APIs)
 
 export interface ParsedRecord {
   nomeFuncionario: string;
@@ -8,10 +8,11 @@ export interface ParsedRecord {
   tipo?: "FOLGA" | "ATESTADO";
 }
 
-const SKIP_VALUES = new Set(["folga", "ferias", "férias", "atesta", "atestad", "atestado", "falta", "ausen", "mat", "pat", "acid", ""]);
+const SKIP_VALUES = new Set(["folga", "ferias", "ferias", "atesta", "atestad", "atestado", "falta", "ausen", "mat", "pat", "acid", ""]);
 
 export function normalizeName(s: string): string {
-  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim().replace(/\s+/g, " ");
+  // U+0300–U+036F = combining diacritical marks
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/[\s]+/g, " ");
 }
 
 export function parseTime(v: unknown): string | null {
@@ -59,7 +60,7 @@ function cellStr(row: unknown[], col: number): string {
 
 function isCartaoPonto(rows: unknown[][]): boolean {
   const cell = String(rows[0]?.[0] ?? "").trim().toUpperCase();
-  return cell.includes("CARTÃO PONTO") || cell.includes("CARTAO PONTO");
+  return cell.includes("CART") && cell.includes("PONTO");
 }
 
 function parseCartaoPonto(rows: unknown[][]): ParsedRecord[] {
