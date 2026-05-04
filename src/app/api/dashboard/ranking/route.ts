@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
     dateRange = { gte: new Date(y, m - 1, 1), lte: new Date(y, m, 0, 23, 59, 59) };
   }
 
-  const [rawAtrasos, rawFaltas, rawAtestados, rawAdvertencias] = await Promise.all([
+  const [rawAtrasos, rawFaltasPonto, rawFaltasAusencia, rawAtestados, rawAdvertencias] = await Promise.all([
     prisma.registroPonto.groupBy({
       by: ["funcionarioId"],
       where: dateRange ? { ocorrencia: "ATRASO", data: dateRange } : { ocorrencia: "ATRASO" },
@@ -47,8 +47,13 @@ export async function GET(req: NextRequest) {
       by: ["funcionarioId"],
       where: dateRange ? { ocorrencia: "FALTA", data: dateRange } : { ocorrencia: "FALTA" },
       _count: { funcionarioId: true },
-      orderBy: { _count: { funcionarioId: "desc" } },
-      take: 5,
+    }),
+    prisma.ausencia.groupBy({
+      by: ["funcionarioId"],
+      where: dateRange
+        ? { tipo: { in: ["FALTA_JUSTIFICADA", "FALTA_INJUSTIFICADA"] }, dataInicio: dateRange }
+        : { tipo: { in: ["FALTA_JUSTIFICADA", "FALTA_INJUSTIFICADA"] } },
+      _count: { funcionarioId: true },
     }),
     prisma.ausencia.groupBy({
       by: ["funcionarioId"],
@@ -67,6 +72,15 @@ export async function GET(req: NextRequest) {
       take: 5,
     }),
   ]);
+
+  // Merge FALTA from RegistroPonto + FALTA_JUSTIFICADA/FALTA_INJUSTIFICADA from Ausencia
+  const faltaMap = new Map<string, number>();
+  for (const r of rawFaltasPonto) faltaMap.set(r.funcionarioId, (faltaMap.get(r.funcionarioId) ?? 0) + r._count.funcionarioId);
+  for (const r of rawFaltasAusencia) faltaMap.set(r.funcionarioId, (faltaMap.get(r.funcionarioId) ?? 0) + r._count.funcionarioId);
+  const rawFaltas = Array.from(faltaMap.entries())
+    .map(([funcionarioId, count]) => ({ funcionarioId, _count: { funcionarioId: count } }))
+    .sort((a, b) => b._count.funcionarioId - a._count.funcionarioId)
+    .slice(0, 5);
 
   const [rankingAtrasos, rankingFaltas, rankingAtestados, rankingAdvertencias] = await Promise.all([
     buildRanking(rawAtrasos),
