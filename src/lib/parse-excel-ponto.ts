@@ -80,7 +80,7 @@ function parseCartaoPonto(rows: unknown[][]): ParsedRecord[] {
   for (let i = dataStartRow; i < rows.length; i++) {
     const row = rows[i];
     const dateStr = parseDate(row[0]);
-    if (!dateStr) break;
+    if (!dateStr) continue;
 
     const b1 = cellStr(row, 1).toLowerCase().replace(/[*^]+$/, "").trim();
     if (b1 === "folga") { records.push({ nomeFuncionario, dateStr, tipo: "FOLGA" }); continue; }

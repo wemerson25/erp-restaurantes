@@ -138,9 +138,13 @@ export function PontoContent() {
 
       const arrayBuffer = await file.arrayBuffer();
       const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: "array", cellDates: false });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as unknown[][];
-      const records = parseExcelPonto(rows);
+
+      // Parse every sheet and merge records
+      const records = wb.SheetNames.flatMap((sheetName: string) => {
+        const ws = wb.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as unknown[][];
+        return parseExcelPonto(rows);
+      });
 
       if (records.length === 0) {
         setExcelError("Nenhum registro encontrado na planilha");
