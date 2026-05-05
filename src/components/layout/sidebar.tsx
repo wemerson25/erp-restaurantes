@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, Building2, Clock, Umbrella,
-  DollarSign, Briefcase, ChefHat, LogOut, Menu, X, FileX, Gift
+  DollarSign, Briefcase, ChefHat, LogOut, Menu, X, FileX, Gift, CalendarDays
 } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,7 @@ const navItems = [
   { href: "/ausencias",    label: "Atestados & Faltas",  icon: FileX },
   { href: "/folha",        label: "Folha de Pagamento",  icon: DollarSign },
   { href: "/beneficios",   label: "Benefícios",           icon: Gift },
+  { href: "/feriados",     label: "Feriados/Datas Import.", icon: CalendarDays },
   { href: "/vagas",        label: "Recrutamento",        icon: Briefcase },
   { href: "/cargos",       label: "Cargos",              icon: ChefHat },
 ];

@@ -14,74 +14,77 @@ export async function GET() {
 
   const today = new Date();
 
-  const funcionarios = await prisma.funcionario.findMany({
-    where: { status: "ATIVO" },
-    select: {
-      id: true, nome: true, matricula: true, dataAdmissao: true,
-      cargo: { select: { nome: true } },
-      restaurante: { select: { nome: true } },
-      folgasAniversario: {
-        include: { usos: { orderBy: { data: "asc" } } },
-        orderBy: { anoReferencia: "asc" },
+  // 1. All active employees + 2. All existing folga records — parallel
+  const [funcionarios, existing] = await Promise.all([
+    prisma.funcionario.findMany({
+      where: { status: "ATIVO" },
+      select: {
+        id: true, nome: true, matricula: true, dataAdmissao: true,
+        cargo: { select: { nome: true } },
+        restaurante: { select: { nome: true } },
       },
-    },
-    orderBy: { nome: "asc" },
-  });
+      orderBy: { nome: "asc" },
+    }),
+    prisma.folgaAniversario.findMany({
+      include: { usos: { orderBy: { data: "asc" } } },
+    }),
+  ]);
 
-  const result = [];
+  // Index existing records by funcionarioId|anoReferencia
+  const existingMap = new Map<string, typeof existing[0]>();
+  for (const r of existing) {
+    existingMap.set(`${r.funcionarioId}|${r.anoReferencia}`, r);
+  }
 
-  for (const f of funcionarios) {
+  // 3. Build response entirely in memory — no DB writes on GET
+  const result = funcionarios.map((f) => {
     const adm = new Date(f.dataAdmissao);
 
-    // Auto-create anniversary benefit records for all passed anniversaries
-    let ano = 1;
-    while (true) {
-      const concessao = addYears(adm, ano);
-      if (concessao > today) break;
-      const validade = addYears(concessao, 1);
-      const exists = f.folgasAniversario.some((fa) => fa.anoReferencia === ano);
-      if (!exists) {
-        await prisma.folgaAniversario.create({
-          data: { funcionarioId: f.id, anoReferencia: ano, dataConcessao: concessao, dataValidade: validade, folgasUsadas: 0 },
-        });
+    // Count completed years
+    let anosCompletos = 0;
+    while (addYears(adm, anosCompletos + 1) <= today) anosCompletos++;
+
+    // Find the current active benefit period (most recent valid one)
+    let folgaAtual = null;
+    for (let ano = anosCompletos; ano >= 1; ano--) {
+      const dataConcessao = addYears(adm, ano);
+      const dataValidade = addYears(adm, ano + 1);
+      if (dataValidade <= today) break; // expired, no point looking further back
+
+      const rec = existingMap.get(`${f.id}|${ano}`);
+      if (rec) {
+        folgaAtual = {
+          id: rec.id,
+          anoReferencia: rec.anoReferencia,
+          dataConcessao: rec.dataConcessao,
+          dataValidade: rec.dataValidade,
+          folgasUsadas: rec.folgasUsadas,
+          folgasDisponiveis: 2 - rec.folgasUsadas,
+          usos: rec.usos.map((u) => ({ id: u.id, data: u.data })),
+        };
+      } else if (dataConcessao <= today) {
+        // Benefit earned but no record yet (no folgas used) — compute virtually
+        folgaAtual = {
+          id: null,
+          anoReferencia: ano,
+          dataConcessao,
+          dataValidade,
+          folgasUsadas: 0,
+          folgasDisponiveis: 2,
+          usos: [],
+        };
       }
-      ano++;
+      break;
     }
 
-    // Re-fetch to include newly created records
-    const beneficios = await prisma.folgaAniversario.findMany({
-      where: { funcionarioId: f.id },
-      include: { usos: { orderBy: { data: "asc" } } },
-      orderBy: { anoReferencia: "desc" },
-    });
-
-    const anosCompletos = ano - 1;
-
-    // Current benefit = latest one still within validity period
-    const folgaAtual = beneficios.find((b) => new Date(b.dataValidade) > today) ?? null;
-
-    result.push({
-      funcionarioId: f.id,
-      nome: f.nome,
-      matricula: f.matricula,
-      cargo: f.cargo.nome,
-      restaurante: f.restaurante.nome,
-      dataAdmissao: f.dataAdmissao,
-      anosCompletos,
+    return {
+      funcionarioId: f.id, nome: f.nome, matricula: f.matricula,
+      cargo: f.cargo.nome, restaurante: f.restaurante.nome,
+      dataAdmissao: f.dataAdmissao, anosCompletos,
       proximoAniversario: addYears(adm, anosCompletos + 1),
-      folgaAtual: folgaAtual
-        ? {
-            id: folgaAtual.id,
-            anoReferencia: folgaAtual.anoReferencia,
-            dataConcessao: folgaAtual.dataConcessao,
-            dataValidade: folgaAtual.dataValidade,
-            folgasUsadas: folgaAtual.folgasUsadas,
-            folgasDisponiveis: 2 - folgaAtual.folgasUsadas,
-            usos: folgaAtual.usos.map((u) => ({ id: u.id, data: u.data })),
-          }
-        : null,
-    });
-  }
+      folgaAtual,
+    };
+  });
 
   return NextResponse.json(result);
 }
