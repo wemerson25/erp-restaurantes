@@ -35,10 +35,20 @@ export async function GET(req: NextRequest) {
     dateRange = { gte: new Date(y, m - 1, 1), lte: new Date(y, m, 0, 23, 59, 59) };
   }
 
+  // Cargos de confiança não entram no ranking de atrasos
+  const confiancaIds = (await prisma.funcionario.findMany({
+    where: { OR: [{ cargo: { nome: { contains: "gerente" } } }, { cargo: { nome: { contains: "analista" } } }] },
+    select: { id: true },
+  })).map(f => f.id);
+
   const [rawAtrasos, rawFaltasPonto, rawFaltasAusencia, rawAtestados, rawAdvertencias] = await Promise.all([
     prisma.registroPonto.groupBy({
       by: ["funcionarioId"],
-      where: dateRange ? { ocorrencia: "ATRASO", data: dateRange } : { ocorrencia: "ATRASO" },
+      where: {
+        ocorrencia: "ATRASO",
+        ...(dateRange ? { data: dateRange } : {}),
+        funcionarioId: { notIn: confiancaIds },
+      },
       _count: { funcionarioId: true },
       orderBy: { _count: { funcionarioId: "desc" } },
       take: 5,

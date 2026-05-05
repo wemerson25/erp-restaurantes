@@ -30,6 +30,12 @@ export async function GET() {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1); // current month (admissões/demissões)
   const yearStart  = new Date(now.getFullYear(), 0, 1);
 
+  // Cargos de confiança não entram no ranking de atrasos
+  const confiancaIds = (await prisma.funcionario.findMany({
+    where: { OR: [{ cargo: { nome: { contains: "gerente" } } }, { cargo: { nome: { contains: "analista" } } }] },
+    select: { id: true },
+  })).map(f => f.id);
+
   const [
     totalFuncionarios,
     funcionariosAtivos,
@@ -61,10 +67,10 @@ export async function GET() {
       where: { ativo: true },
       select: { nome: true, _count: { select: { funcionarios: true } } },
     }),
-    // Ranking: Atrasos do mês anterior
+    // Ranking: Atrasos do mês anterior (cargos de confiança excluídos)
     prisma.registroPonto.groupBy({
       by: ["funcionarioId"],
-      where: { ocorrencia: "ATRASO", data: { gte: lastMonthStart, lte: lastMonthEnd } },
+      where: { ocorrencia: "ATRASO", data: { gte: lastMonthStart, lte: lastMonthEnd }, funcionarioId: { notIn: confiancaIds } },
       _count: { funcionarioId: true },
       orderBy: { _count: { funcionarioId: "desc" } },
       take: 5,
