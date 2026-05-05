@@ -72,11 +72,11 @@ export async function POST(req: NextRequest) {
 
       const dataDate = new Date(`${rec.dateStr}T00:00:00`);
 
-      if (rec.tipo === "FOLGA") {
+      if (rec.tipo === "FOLGA" || rec.tipo === "FALTA") {
         payloads.push({
           funcionarioId: funcionario.id, data: dataDate,
           entrada: null, saida1: null, entrada2: null, saidaAlmoco: null, retornoAlmoco: null, saida: null,
-          horasTrabalhadas: 0, horasExtras: 0, ocorrencia: "FOLGA",
+          horasTrabalhadas: 0, horasExtras: 0, ocorrencia: rec.tipo,
         });
         continue;
       }

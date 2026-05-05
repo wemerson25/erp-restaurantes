@@ -5,10 +5,10 @@ export interface ParsedRecord {
   dateStr: string;
   tempos?: { e1: string|null; s1: string|null; e2: string|null; s2: string|null; e3: string|null; s3: string|null };
   batidas?: string[];
-  tipo?: "FOLGA" | "ATESTADO";
+  tipo?: "FOLGA" | "ATESTADO" | "FALTA";
 }
 
-const SKIP_VALUES = new Set(["folga", "ferias", "férias", "atesta", "atestad", "atestado", "falta", "ausen", "mat", "pat", "acid", ""]);
+const SKIP_VALUES = new Set(["folga", "ferias", "férias", "atesta", "atestad", "atestado", "ausen", "mat", "pat", "acid", ""]);
 
 export function normalizeName(s: string): string {
   // U+0300–U+036F = combining diacritical marks
@@ -96,6 +96,7 @@ function parseCartaoPonto(rows: unknown[][]): ParsedRecord[] {
     const ann = (cellStr(row, 1 + tOff) || cellStr(row, 1)).toLowerCase().replace(/[*^]+$/, "").trim();
 
     if (ann === "folga") { records.push({ nomeFuncionario, dateStr, tipo: "FOLGA" }); continue; }
+    if (ann === "falta") { records.push({ nomeFuncionario, dateStr, tipo: "FALTA" }); continue; }
     if (ann.startsWith("atesta")) { records.push({ nomeFuncionario, dateStr, tipo: "ATESTADO" }); continue; }
     if (SKIP_VALUES.has(ann)) continue;
 
