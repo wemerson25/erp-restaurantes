@@ -133,27 +133,27 @@ export async function POST(req: NextRequest) {
         else toCreate.push(p);
       }
 
-      // Use $transaction to batch all creates in a single round-trip (avoids Turso connection limits)
-      if (toCreate.length > 0) {
+      // Split into chunks of 100 to stay within Turso's per-transaction limits
+      const TX = 100;
+      for (let i = 0; i < toCreate.length; i += TX) {
+        const chunk = toCreate.slice(i, i + TX);
         try {
-          await prisma.$transaction(
-            toCreate.map(payload => prisma.registroPonto.create({ data: payload }))
-          );
-          imported += toCreate.length;
+          await prisma.$transaction(chunk.map(p => prisma.registroPonto.create({ data: p })));
+          imported += chunk.length;
         } catch (e) {
-          errors.push(`Erro ao criar registros: ${e instanceof Error ? e.message : String(e)}`);
+          errors.push(`Erro criar lote ${Math.floor(i / TX) + 1}: ${e instanceof Error ? e.message : String(e)}`);
+          break;
         }
       }
 
-      // Same for updates
-      if (toUpdate.length > 0) {
+      for (let i = 0; i < toUpdate.length; i += TX) {
+        const chunk = toUpdate.slice(i, i + TX);
         try {
-          await prisma.$transaction(
-            toUpdate.map(({ id, payload }) => prisma.registroPonto.update({ where: { id }, data: payload }))
-          );
-          updated += toUpdate.length;
+          await prisma.$transaction(chunk.map(({ id, payload }) => prisma.registroPonto.update({ where: { id }, data: payload })));
+          updated += chunk.length;
         } catch (e) {
-          errors.push(`Erro ao atualizar registros: ${e instanceof Error ? e.message : String(e)}`);
+          errors.push(`Erro atualizar lote ${Math.floor(i / TX) + 1}: ${e instanceof Error ? e.message : String(e)}`);
+          break;
         }
       }
     }
