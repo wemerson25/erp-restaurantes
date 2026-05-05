@@ -100,6 +100,7 @@ const pontoRowClass: Record<string, string> = {
   FALTA: "bg-red-100",
   SAIDA_ANTECIPADA: "bg-amber-50",
   FOLGA: "bg-blue-50",
+  FOLGA_B: "bg-purple-50",
 };
 
 const pontoOcorrLabel: Record<string, string> = {
@@ -108,6 +109,7 @@ const pontoOcorrLabel: Record<string, string> = {
   FALTA: "Falta",
   SAIDA_ANTECIPADA: "Saída Antec.",
   FOLGA: "Folga",
+  FOLGA_B: "Folga Benef.",
 };
 
 const pontoVariant: Record<string, "success" | "destructive" | "warning" | "secondary"> = {
@@ -116,6 +118,7 @@ const pontoVariant: Record<string, "success" | "destructive" | "warning" | "seco
   FALTA: "destructive",
   SAIDA_ANTECIPADA: "warning",
   FOLGA: "secondary",
+  FOLGA_B: "secondary",
 };
 
 interface Props {
@@ -168,7 +171,7 @@ export function ColaboradorView({ funcionarios, filterMonth }: Props) {
     iso ? new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" }) : "—";
 
   // Summary calculations
-  const pontoDias = data?.registros.filter((r) => r.ocorrencia !== "FALTA" && r.ocorrencia !== "FOLGA").length ?? 0;
+  const pontoDias = data?.registros.filter((r) => r.ocorrencia !== "FALTA" && r.ocorrencia !== "FOLGA" && r.ocorrencia !== "FOLGA_B").length ?? 0;
   const faltasPonto = data?.registros.filter((r) => r.ocorrencia === "FALTA").length ?? 0;
   const atrasos = data?.registros.filter((r) => r.ocorrencia === "ATRASO").length ?? 0;
   const totalHoras = data?.registros.reduce((s, r) => s + (r.horasTrabalhadas ?? 0), 0) ?? 0;

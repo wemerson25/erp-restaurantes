@@ -76,7 +76,8 @@ model Funcionario {
   folhas         FolhaPagamento[]
   advertencias   Advertencia[]
   ausencias      Ausencia[]
-  candidatura    Candidatura?
+  candidatura       Candidatura?
+  folgasAniversario FolgaAniversario[]
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 }
@@ -175,6 +176,39 @@ model Ausencia {
   funcionario     Funcionario @relation(fields: [funcionarioId], references: [id])
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
+}
+
+model Feriado {
+  id         String   @id @default(cuid())
+  nome       String
+  data       DateTime
+  tipo       String   @default("NACIONAL")
+  recorrente Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model FolgaAniversario {
+  id            String                @id @default(cuid())
+  funcionarioId String
+  anoReferencia Int
+  dataConcessao DateTime
+  dataValidade  DateTime
+  folgasUsadas  Int                   @default(0)
+  funcionario   Funcionario           @relation(fields: [funcionarioId], references: [id])
+  usos          UsoFolgaAniversario[]
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  @@unique([funcionarioId, anoReferencia])
+}
+
+model UsoFolgaAniversario {
+  id                 String           @id @default(cuid())
+  folgaAniversarioId String
+  data               DateTime
+  folgaAniversario   FolgaAniversario @relation(fields: [folgaAniversarioId], references: [id], onDelete: Cascade)
+  createdAt          DateTime         @default(now())
 }
 
 model Candidatura {
