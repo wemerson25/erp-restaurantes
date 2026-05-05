@@ -104,7 +104,7 @@ function parseCartaoPonto(rows: unknown[][]): ParsedRecord[] {
       e1: parseTime(row[1 + tOff]), s1: parseTime(row[2 + tOff]), e2: parseTime(row[3 + tOff]),
       s2: parseTime(row[4 + tOff]), e3: parseTime(row[5 + tOff]), s3: parseTime(row[6 + tOff]),
     };
-    if (!tempos.e1 && !tempos.s3) continue;
+    if (!tempos.e1 && !tempos.s1 && !tempos.e2 && !tempos.s2 && !tempos.e3 && !tempos.s3) continue;
     records.push({ nomeFuncionario, dateStr, tempos });
   }
 
