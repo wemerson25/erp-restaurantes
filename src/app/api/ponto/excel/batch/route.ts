@@ -115,60 +115,43 @@ export async function POST(req: NextRequest) {
       const minDate = new Date(Math.min(...timestamps));
       const maxDate = new Date(Math.max(...timestamps));
 
-      // Single query to find all existing records in the date range
       const existingRecords = await prisma.registroPonto.findMany({
         where: { funcionarioId: { in: funcionarioIds }, data: { gte: minDate, lte: maxDate } },
         select: { id: true, funcionarioId: true, data: true },
       });
-
       const existingMap = new Map(
         existingRecords.map(r => [`${r.funcionarioId}|${r.data.toISOString()}`, r.id])
       );
 
-      const toCreate: PontoPayload[] = [];
-      const toUpdate: Array<{ id: string; payload: PontoPayload }> = [];
-
-      for (const p of payloads) {
-        const existingId = existingMap.get(`${p.funcionarioId}|${p.data.toISOString()}`);
-        if (existingId) toUpdate.push({ id: existingId, payload: p });
-        else toCreate.push(p);
-      }
-
-      // Bulk INSERT via raw SQL — single round-trip per batch, avoids interactive-transaction overhead
+      // Bulk upsert: INSERT new rows, UPDATE existing ones — single round-trip per 100-row batch
       const COLS = `id,"funcionarioId",data,entrada,saida1,entrada2,"saidaAlmoco","retornoAlmoco",saida,"horasTrabalhadas","horasExtras",ocorrencia,"createdAt","updatedAt"`;
-      const BULK = 100; // 100 × 14 params = 1400, well within SQLite limits
-      for (let i = 0; i < toCreate.length; i += BULK) {
-        const batch = toCreate.slice(i, i + BULK);
-        const now = new Date().toISOString();
+      const ON_CONFLICT = `ON CONFLICT(id) DO UPDATE SET "funcionarioId"=excluded."funcionarioId",data=excluded.data,entrada=excluded.entrada,saida1=excluded.saida1,entrada2=excluded.entrada2,"saidaAlmoco"=excluded."saidaAlmoco","retornoAlmoco"=excluded."retornoAlmoco",saida=excluded.saida,"horasTrabalhadas"=excluded."horasTrabalhadas","horasExtras"=excluded."horasExtras",ocorrencia=excluded.ocorrencia,"updatedAt"=excluded."updatedAt"`;
+      const BULK = 100;
+      const now = new Date().toISOString();
+      for (let i = 0; i < payloads.length; i += BULK) {
+        const batch = payloads.slice(i, i + BULK);
         const placeholders = batch.map(() => "(?,?,?,?,?,?,?,?,?,?,?,?,?,?)").join(",");
-        const params = batch.flatMap(p => [
-          randomUUID(), p.funcionarioId, p.data.toISOString(),
-          p.entrada?.toISOString() ?? null, p.saida1?.toISOString() ?? null,
-          p.entrada2?.toISOString() ?? null, p.saidaAlmoco?.toISOString() ?? null,
-          p.retornoAlmoco?.toISOString() ?? null, p.saida?.toISOString() ?? null,
-          p.horasTrabalhadas, p.horasExtras, p.ocorrencia, now, now,
-        ]);
+        const params = batch.flatMap(p => {
+          const existingId = existingMap.get(`${p.funcionarioId}|${p.data.toISOString()}`);
+          return [
+            existingId ?? randomUUID(), p.funcionarioId, p.data.toISOString(),
+            p.entrada?.toISOString() ?? null, p.saida1?.toISOString() ?? null,
+            p.entrada2?.toISOString() ?? null, p.saidaAlmoco?.toISOString() ?? null,
+            p.retornoAlmoco?.toISOString() ?? null, p.saida?.toISOString() ?? null,
+            p.horasTrabalhadas, p.horasExtras, p.ocorrencia, now, now,
+          ];
+        });
         try {
-          await prisma.$executeRawUnsafe(`INSERT INTO "RegistroPonto" (${COLS}) VALUES ${placeholders}`, ...params);
-          imported += batch.length;
-        } catch (e) {
-          errors.push(`Erro criar lote ${Math.floor(i / BULK) + 1}: ${e instanceof Error ? e.message : String(e)}`);
-          break;
-        }
-      }
-
-      // Updates: $transaction with increased timeout in small chunks
-      const TX = 20;
-      for (let i = 0; i < toUpdate.length; i += TX) {
-        const chunk = toUpdate.slice(i, i + TX);
-        try {
-          await prisma.$transaction(
-            chunk.map(({ id, payload }) => prisma.registroPonto.update({ where: { id }, data: payload })),
-            { timeout: 15000 }
+          await prisma.$executeRawUnsafe(
+            `INSERT INTO "RegistroPonto" (${COLS}) VALUES ${placeholders} ${ON_CONFLICT}`,
+            ...params
           );
-          updated += chunk.length;
+          for (const p of batch) {
+            if (existingMap.has(`${p.funcionarioId}|${p.data.toISOString()}`)) updated++;
+            else imported++;
+          }
         } catch (e) {
-          errors.push(`Erro atualizar lote ${Math.floor(i / TX) + 1}: ${e instanceof Error ? e.message : String(e)}`);
+          errors.push(`Erro lote ${Math.floor(i / BULK) + 1}: ${e instanceof Error ? e.message : String(e)}`);
           break;
         }
       }

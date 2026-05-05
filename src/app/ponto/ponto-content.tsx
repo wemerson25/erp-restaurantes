@@ -167,7 +167,12 @@ export function PontoContent() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ records: chunk }),
         });
-        const data = await res.json();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let data: any;
+        try { data = await res.json(); } catch {
+          setExcelError(`Timeout do servidor no lote ${Math.floor(i / CHUNK_SIZE) + 1}. Os lotes anteriores foram salvos — tente reimportar.`);
+          return;
+        }
         if (!res.ok) { setExcelError(data.error ?? data.detail ?? "Erro ao importar lote"); return; }
         if (data.errors?.length) {
           setExcelError(`Lote ${Math.floor(i / CHUNK_SIZE) + 1} — ${data.errors.join("; ")} | debug: recebeu=${data.debug?.received} payloads=${data.debug?.payloads}`);
