@@ -173,7 +173,7 @@ export function PontoContent() {
           setExcelError(`Timeout do servidor no lote ${Math.floor(i / CHUNK_SIZE) + 1}. Os lotes anteriores foram salvos — tente reimportar.`);
           return;
         }
-        if (!res.ok) { setExcelError(data.error ?? data.detail ?? "Erro ao importar lote"); return; }
+        if (!res.ok) { setExcelError(`${data.error ?? "Erro ao importar lote"}${data.detail ? ` — ${data.detail}` : ""}`); return; }
         if (data.errors?.length) {
           setExcelError(`Lote ${Math.floor(i / CHUNK_SIZE) + 1} — ${data.errors.join("; ")} | debug: recebeu=${data.debug?.received} payloads=${data.debug?.payloads}`);
           return;

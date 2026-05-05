@@ -123,9 +123,9 @@ export async function POST(req: NextRequest) {
         existingRecords.map(r => [`${r.funcionarioId}|${r.data.toISOString()}`, r.id])
       );
 
-      // Bulk upsert: INSERT new rows, UPDATE existing ones — single round-trip per 100-row batch
+      // Bulk upsert via INSERT OR REPLACE — single round-trip per 100-row batch
+      // Uses existing id for updates (replace in-place) and new UUID for creates
       const COLS = `id,"funcionarioId",data,entrada,saida1,entrada2,"saidaAlmoco","retornoAlmoco",saida,"horasTrabalhadas","horasExtras",ocorrencia,"createdAt","updatedAt"`;
-      const ON_CONFLICT = `ON CONFLICT(id) DO UPDATE SET "funcionarioId"=excluded."funcionarioId",data=excluded.data,entrada=excluded.entrada,saida1=excluded.saida1,entrada2=excluded.entrada2,"saidaAlmoco"=excluded."saidaAlmoco","retornoAlmoco"=excluded."retornoAlmoco",saida=excluded.saida,"horasTrabalhadas"=excluded."horasTrabalhadas","horasExtras"=excluded."horasExtras",ocorrencia=excluded.ocorrencia,"updatedAt"=excluded."updatedAt"`;
       const BULK = 100;
       const now = new Date().toISOString();
       for (let i = 0; i < payloads.length; i += BULK) {
@@ -143,7 +143,7 @@ export async function POST(req: NextRequest) {
         });
         try {
           await prisma.$executeRawUnsafe(
-            `INSERT INTO "RegistroPonto" (${COLS}) VALUES ${placeholders} ${ON_CONFLICT}`,
+            `INSERT OR REPLACE INTO "RegistroPonto" (${COLS}) VALUES ${placeholders}`,
             ...params
           );
           for (const p of batch) {
