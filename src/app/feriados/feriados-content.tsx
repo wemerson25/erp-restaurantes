@@ -33,15 +33,23 @@ function fmtDateShort(iso: string, recorrente: boolean) {
 export function FeriadosContent() {
   const [feriados, setFeriados] = useState<Feriado[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [form, setForm] = useState({ nome: "", data: "", tipo: "NACIONAL", recorrente: true });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const fetchFeriados = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/feriados");
-    setFeriados(await res.json());
-    setLoading(false);
+    setLoadError("");
+    try {
+      const res = await fetch("/api/feriados");
+      if (!res.ok) { setLoadError(`Erro ${res.status}`); return; }
+      setFeriados(await res.json());
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Erro ao carregar");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { fetchFeriados(); }, [fetchFeriados]);
@@ -146,6 +154,12 @@ export function FeriadosContent() {
         {loading ? (
           <div className="flex items-center justify-center h-32">
             <Loader2 size={24} className="animate-spin text-red-500" />
+          </div>
+        ) : loadError ? (
+          <div className="flex flex-col items-center justify-center h-32 gap-2 text-sm text-red-500">
+            <AlertCircle size={20} />
+            <span>{loadError}</span>
+            <button onClick={fetchFeriados} className="text-xs text-gray-500 underline">Tentar novamente</button>
           </div>
         ) : feriados.length === 0 ? (
           <div className="flex items-center justify-center h-32 text-gray-400 text-sm">
