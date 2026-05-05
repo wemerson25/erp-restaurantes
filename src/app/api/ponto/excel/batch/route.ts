@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { detectOcorrencia, calcHoursFromPunches, getCargaDiaria } from "@/lib/schedule";
@@ -133,23 +134,38 @@ export async function POST(req: NextRequest) {
         else toCreate.push(p);
       }
 
-      // Split into chunks of 100 to stay within Turso's per-transaction limits
-      const TX = 100;
-      for (let i = 0; i < toCreate.length; i += TX) {
-        const chunk = toCreate.slice(i, i + TX);
+      // Bulk INSERT via raw SQL — single round-trip per batch, avoids interactive-transaction overhead
+      const COLS = `id,"funcionarioId",data,entrada,saida1,entrada2,"saidaAlmoco","retornoAlmoco",saida,"horasTrabalhadas","horasExtras",ocorrencia,"createdAt","updatedAt"`;
+      const BULK = 100; // 100 × 14 params = 1400, well within SQLite limits
+      for (let i = 0; i < toCreate.length; i += BULK) {
+        const batch = toCreate.slice(i, i + BULK);
+        const now = new Date().toISOString();
+        const placeholders = batch.map(() => "(?,?,?,?,?,?,?,?,?,?,?,?,?,?)").join(",");
+        const params = batch.flatMap(p => [
+          randomUUID(), p.funcionarioId, p.data.toISOString(),
+          p.entrada?.toISOString() ?? null, p.saida1?.toISOString() ?? null,
+          p.entrada2?.toISOString() ?? null, p.saidaAlmoco?.toISOString() ?? null,
+          p.retornoAlmoco?.toISOString() ?? null, p.saida?.toISOString() ?? null,
+          p.horasTrabalhadas, p.horasExtras, p.ocorrencia, now, now,
+        ]);
         try {
-          await prisma.$transaction(chunk.map(p => prisma.registroPonto.create({ data: p })));
-          imported += chunk.length;
+          await prisma.$executeRawUnsafe(`INSERT INTO "RegistroPonto" (${COLS}) VALUES ${placeholders}`, ...params);
+          imported += batch.length;
         } catch (e) {
-          errors.push(`Erro criar lote ${Math.floor(i / TX) + 1}: ${e instanceof Error ? e.message : String(e)}`);
+          errors.push(`Erro criar lote ${Math.floor(i / BULK) + 1}: ${e instanceof Error ? e.message : String(e)}`);
           break;
         }
       }
 
+      // Updates: $transaction with increased timeout in small chunks
+      const TX = 20;
       for (let i = 0; i < toUpdate.length; i += TX) {
         const chunk = toUpdate.slice(i, i + TX);
         try {
-          await prisma.$transaction(chunk.map(({ id, payload }) => prisma.registroPonto.update({ where: { id }, data: payload })));
+          await prisma.$transaction(
+            chunk.map(({ id, payload }) => prisma.registroPonto.update({ where: { id }, data: payload })),
+            { timeout: 15000 }
+          );
           updated += chunk.length;
         } catch (e) {
           errors.push(`Erro atualizar lote ${Math.floor(i / TX) + 1}: ${e instanceof Error ? e.message : String(e)}`);
