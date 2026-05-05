@@ -184,7 +184,7 @@ export async function POST(req: NextRequest) {
       } catch { errors.push(`${nome}: erro ao salvar atestado`); }
     }
 
-    return NextResponse.json({ imported, updated, unmatched: Array.from(unmatched), errors, total: imported + updated });
+    return NextResponse.json({ imported, updated, unmatched: Array.from(unmatched), errors, total: imported + updated, debug: { received: records.length, payloads: payloads.length, unmatched: unmatched.size } });
   } catch (e) {
     console.error("[POST /api/ponto/excel/batch]", e);
     return NextResponse.json(

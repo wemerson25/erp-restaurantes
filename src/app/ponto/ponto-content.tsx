@@ -160,7 +160,7 @@ export function PontoContent() {
       const allUnmatched = new Set<string>();
 
       for (let i = 0; i < records.length; i += CHUNK_SIZE) {
-        setExcelProgress({ current: Math.floor(i / CHUNK_SIZE) + 1, total: totalChunks });
+        setExcelProgress({ current: Math.floor(i / CHUNK_SIZE) + 1, total: totalChunks, parsed: records.length } as { current: number; total: number; parsed: number });
         const chunk = records.slice(i, i + CHUNK_SIZE);
         const res = await fetch("/api/ponto/excel/batch", {
           method: "POST",
@@ -169,7 +169,12 @@ export function PontoContent() {
         });
         const data = await res.json();
         if (!res.ok) { setExcelError(data.error ?? data.detail ?? "Erro ao importar lote"); return; }
-        if (data.errors?.length) { setExcelError(`Lote ${Math.floor(i / CHUNK_SIZE) + 1}: ${data.errors.join("; ")}`); return; }
+        if (data.errors?.length) {
+          setExcelError(`Lote ${Math.floor(i / CHUNK_SIZE) + 1} — ${data.errors.join("; ")} | debug: recebeu=${data.debug?.received} payloads=${data.debug?.payloads}`);
+          return;
+        }
+        // Log debug info to console
+        if (data.debug) console.log(`Chunk ${Math.floor(i / CHUNK_SIZE) + 1} debug:`, data.debug);
         totalImported += data.imported ?? 0;
         totalUpdated  += data.updated  ?? 0;
         (data.unmatched ?? []).forEach((u: string) => allUnmatched.add(u));
@@ -523,7 +528,7 @@ export function PontoContent() {
                 {excelProgress ? (
                   <>
                     <span className="text-sm font-medium">
-                      Importando lote {excelProgress.current} de {excelProgress.total}…
+                      Importando lote {excelProgress.current} de {excelProgress.total} ({(excelProgress as any).parsed ?? "?"} registros na planilha)
                     </span>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
