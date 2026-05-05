@@ -10,7 +10,7 @@ import { Modal } from "@/components/ui/modal";
 interface Uso { id: string; data: string }
 
 interface FolgaAtual {
-  id: string;
+  id: string | null;
   anoReferencia: number;
   dataConcessao: string;
   dataValidade: string;
@@ -96,15 +96,22 @@ export function BeneficiosContent() {
     return f.folgasDisponiveis > 0;
   };
 
+  function openModal(b: BeneficioEmployee) {
+    setSelected(b);
+    setFolgaDate("");
+    setFolgaError("");
+    setUsarModal(true);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+        <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center shrink-0">
           <Gift size={20} className="text-purple-600" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Folgas de Aniversário</h1>
-          <p className="text-sm text-gray-500">2 folgas por ano completo · válidas de segunda a quinta, sem feriados</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Folgas de Aniversário</h1>
+          <p className="text-xs sm:text-sm text-gray-500">2 folgas por ano completo · seg–qui, sem feriados</p>
         </div>
       </div>
 
@@ -113,92 +120,133 @@ export function BeneficiosContent() {
           <div className="flex items-center justify-center h-48">
             <Loader2 size={24} className="animate-spin text-purple-500" />
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Colaborador</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Restaurante</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Anos</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Status</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Validade</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Folgas usadas</th>
-                  <th className="px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {beneficios.map((b) => (
-                  <tr key={b.funcionarioId} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-gray-900">{b.nome}</p>
-                      <p className="text-xs text-gray-400">{b.matricula} · {b.cargo}</p>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600 text-xs">{b.restaurante}</td>
-                    <td className="px-4 py-3">
-                      <span className="font-semibold text-gray-800">{b.anosCompletos}</span>
-                      {b.anosCompletos < 1 && (
-                        <p className="text-xs text-gray-400">
-                          Próx. {fmtDate(b.proximoAniversario)}
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">{benefitBadge(b.folgaAtual)}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500">
-                      {b.folgaAtual ? (
-                        <>
-                          <span>Até {fmtDate(b.folgaAtual.dataValidade)}</span>
-                          <p className="text-gray-400">Ano {b.folgaAtual.anoReferencia}º</p>
-                        </>
-                      ) : "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      {b.folgaAtual?.usos.length ? (
-                        <div className="space-y-1">
-                          {b.folgaAtual.usos.map((u) => (
-                            <div key={u.id} className="flex items-center gap-1">
-                              <span className="text-xs font-mono text-gray-700">{fmtDate(u.data)}</span>
-                              <button
-                                onClick={() => handleCancelarUso(u.id)}
-                                className="p-0.5 text-gray-300 hover:text-red-500 transition-colors"
-                                title="Cancelar uso"
-                              >
-                                <X size={12} />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-gray-400">Nenhuma usada</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {canUse(b) && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => { setSelected(b); setFolgaDate(""); setFolgaError(""); setUsarModal(true); }}
-                        >
-                          <CalendarDays size={14} /> Registrar
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {beneficios.length === 0 && (
-              <div className="flex items-center justify-center h-32 text-gray-400 text-sm">
-                Nenhum colaborador ativo encontrado
-              </div>
-            )}
+        ) : beneficios.length === 0 ? (
+          <div className="flex items-center justify-center h-32 text-gray-400 text-sm">
+            Nenhum colaborador ativo encontrado
           </div>
+        ) : (
+          <>
+            {/* Mobile: cards */}
+            <div className="divide-y divide-gray-100 sm:hidden">
+              {beneficios.map((b) => (
+                <div key={b.funcionarioId} className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-semibold text-gray-900 text-sm">{b.nome}</p>
+                      <p className="text-xs text-gray-400">{b.cargo} · {b.restaurante}</p>
+                    </div>
+                    {benefitBadge(b.folgaAtual)}
+                  </div>
+
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                    <span><span className="font-semibold text-gray-800">{b.anosCompletos}</span> anos</span>
+                    {b.folgaAtual && (
+                      <span>Válido até {fmtDate(b.folgaAtual.dataValidade)}</span>
+                    )}
+                  </div>
+
+                  {b.folgaAtual?.usos.length ? (
+                    <div className="space-y-1">
+                      {b.folgaAtual.usos.map((u) => (
+                        <div key={u.id} className="flex items-center gap-1">
+                          <span className="text-xs font-mono text-gray-600">{fmtDate(u.data)}</span>
+                          <button
+                            onClick={() => handleCancelarUso(u.id)}
+                            className="p-0.5 text-gray-300 hover:text-red-500 transition-colors"
+                            title="Cancelar uso"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {canUse(b) && (
+                    <Button size="sm" variant="outline" onClick={() => openModal(b)} className="w-full">
+                      <CalendarDays size={14} /> Registrar folga
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop: table */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="px-4 py-3 text-left font-semibold text-gray-600">Colaborador</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-600">Restaurante</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-600">Anos</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-600">Status</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-600">Validade</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-600">Folgas usadas</th>
+                    <th className="px-4 py-3" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {beneficios.map((b) => (
+                    <tr key={b.funcionarioId} className="hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-gray-900">{b.nome}</p>
+                        <p className="text-xs text-gray-400">{b.matricula} · {b.cargo}</p>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 text-xs">{b.restaurante}</td>
+                      <td className="px-4 py-3">
+                        <span className="font-semibold text-gray-800">{b.anosCompletos}</span>
+                        {b.anosCompletos < 1 && (
+                          <p className="text-xs text-gray-400">Próx. {fmtDate(b.proximoAniversario)}</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">{benefitBadge(b.folgaAtual)}</td>
+                      <td className="px-4 py-3 text-xs text-gray-500">
+                        {b.folgaAtual ? (
+                          <>
+                            <span>Até {fmtDate(b.folgaAtual.dataValidade)}</span>
+                            <p className="text-gray-400">Ano {b.folgaAtual.anoReferencia}º</p>
+                          </>
+                        ) : "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        {b.folgaAtual?.usos.length ? (
+                          <div className="space-y-1">
+                            {b.folgaAtual.usos.map((u) => (
+                              <div key={u.id} className="flex items-center gap-1">
+                                <span className="text-xs font-mono text-gray-700">{fmtDate(u.data)}</span>
+                                <button
+                                  onClick={() => handleCancelarUso(u.id)}
+                                  className="p-0.5 text-gray-300 hover:text-red-500 transition-colors"
+                                  title="Cancelar uso"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400">Nenhuma usada</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {canUse(b) && (
+                          <Button size="sm" variant="outline" onClick={() => openModal(b)}>
+                            <CalendarDays size={14} /> Registrar
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </Card>
 
       {/* MODAL: REGISTRAR FOLGA */}
       <Modal open={usarModal} onClose={() => setUsarModal(false)} title="Registrar Folga de Benefício" size="sm">
-        <div className="p-6 space-y-4">
+        <div className="p-4 sm:p-6 space-y-4">
           {selected && (
             <div className="bg-purple-50 rounded-lg px-4 py-3 text-sm">
               <p className="font-semibold text-purple-900">{selected.nome}</p>
@@ -210,11 +258,7 @@ export function BeneficiosContent() {
 
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Data da folga *</label>
-            <Input
-              type="date"
-              value={folgaDate}
-              onChange={(e) => setFolgaDate(e.target.value)}
-            />
+            <Input type="date" value={folgaDate} onChange={(e) => setFolgaDate(e.target.value)} />
             <p className="text-xs text-gray-400 mt-1">Permitido: segunda a quinta, sem feriados ou vésperas.</p>
           </div>
 
