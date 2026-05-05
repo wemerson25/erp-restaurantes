@@ -168,13 +168,14 @@ export function PontoContent() {
           body: JSON.stringify({ records: chunk }),
         });
         const data = await res.json();
-        if (!res.ok) { setExcelError(data.error ?? "Erro ao importar lote"); return; }
+        if (!res.ok) { setExcelError(data.error ?? data.detail ?? "Erro ao importar lote"); return; }
+        if (data.errors?.length) { setExcelError(`Lote ${Math.floor(i / CHUNK_SIZE) + 1}: ${data.errors.join("; ")}`); return; }
         totalImported += data.imported ?? 0;
         totalUpdated  += data.updated  ?? 0;
         (data.unmatched ?? []).forEach((u: string) => allUnmatched.add(u));
       }
 
-      setExcelResult({ imported: totalImported, updated: totalUpdated, total: totalImported + totalUpdated, unmatched: Array.from(allUnmatched) });
+      setExcelResult({ imported: totalImported, updated: totalUpdated, total: totalImported + totalUpdated, unmatched: Array.from(allUnmatched), parsed: records.length } as AFDResult & { parsed: number });
       fetchRegistros();
     } catch (err) {
       setExcelError(err instanceof Error ? err.message : "Erro ao processar arquivo");
@@ -571,6 +572,12 @@ export function PontoContent() {
                   <p className="text-xs text-green-700 mt-0.5">
                     {excelResult.imported} criado(s) · {excelResult.updated} atualizado(s)
                   </p>
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  {(excelResult as any).parsed != null && (excelResult as any).parsed !== excelResult.total && (
+                    <p className="text-xs text-yellow-700 mt-0.5">
+                      {(excelResult as any).parsed} registros lidos na planilha · {(excelResult as any).parsed - excelResult.total} não salvos (nomes não encontrados)
+                    </p>
+                  )}
                 </div>
               </div>
               {excelResult.unmatched.length > 0 && (

@@ -8,7 +8,7 @@ export interface ParsedRecord {
   tipo?: "FOLGA" | "ATESTADO";
 }
 
-const SKIP_VALUES = new Set(["folga", "ferias", "ferias", "atesta", "atestad", "atestado", "falta", "ausen", "mat", "pat", "acid", ""]);
+const SKIP_VALUES = new Set(["folga", "ferias", "férias", "atesta", "atestad", "atestado", "falta", "ausen", "mat", "pat", "acid", ""]);
 
 export function normalizeName(s: string): string {
   // U+0300–U+036F = combining diacritical marks
