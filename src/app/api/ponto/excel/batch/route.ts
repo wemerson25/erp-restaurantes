@@ -86,7 +86,11 @@ export async function POST(req: NextRequest) {
 
       if (rec.tempos) {
         const t = rec.tempos;
-        const toD = (s: string | null) => s ? new Date(`${rec.dateStr}T${s}:00`) : null;
+        const toD = (s: string | null) => {
+          if (!s) return null;
+          const d = new Date(`${rec.dateStr}T${s}:00`);
+          return isNaN(d.getTime()) ? null : d;
+        };
         entrada = toD(t.e1); saida1 = toD(t.s1); entrada2 = toD(t.e2);
         saidaAlmoco = toD(t.s2); retornoAlmoco = toD(t.e3); saida = toD(t.s3);
       } else if (rec.batidas && rec.batidas.length > 0) {
@@ -97,7 +101,8 @@ export async function POST(req: NextRequest) {
         saidaAlmoco = f.saidaAlmoco; retornoAlmoco = f.retornoAlmoco; saida = f.saida;
       }
 
-      const punches = [entrada, saida1, entrada2, saidaAlmoco, retornoAlmoco, saida].filter(Boolean) as Date[];
+      const punches = [entrada, saida1, entrada2, saidaAlmoco, retornoAlmoco, saida]
+        .filter((d): d is Date => d instanceof Date && !isNaN(d.getTime()));
       const horasTrabalhadas = calcHoursFromPunches(punches);
       const carga = getCargaDiaria(funcionario.restaurante.nome, dataDate);
       const horasExtras = Math.max(0, Math.round((horasTrabalhadas - carga) * 100) / 100);

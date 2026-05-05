@@ -18,6 +18,7 @@ export function normalizeName(s: string): string {
 export function parseTime(v: unknown): string | null {
   if (v == null || v === "") return null;
   if (typeof v === "number") {
+    if (!Number.isFinite(v)) return null;
     const totalMin = Math.round(v * 24 * 60);
     const hh = Math.floor(totalMin / 60) % 24;
     const mm = totalMin % 60;
