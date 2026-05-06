@@ -3,10 +3,14 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 
 export async function GET() {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-  const feriados = await prisma.feriado.findMany({ orderBy: [{ recorrente: "desc" }, { data: "asc" }] });
-  return NextResponse.json(feriados);
+  try {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    const feriados = await prisma.feriado.findMany({ orderBy: [{ data: "asc" }] });
+    return NextResponse.json(feriados);
+  } catch (e) {
+    return NextResponse.json({ error: "Erro ao buscar feriados", detail: e instanceof Error ? e.message : String(e) }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
