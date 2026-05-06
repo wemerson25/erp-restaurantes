@@ -43,8 +43,9 @@ export function FeriadosContent() {
     setLoadError("");
     try {
       const res = await fetch("/api/feriados");
-      if (!res.ok) { setLoadError(`Erro ${res.status}`); return; }
-      setFeriados(await res.json());
+      const data = await res.json();
+      if (!res.ok) { setLoadError(data.detail ?? data.error ?? `Erro ${res.status}`); return; }
+      setFeriados(data);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Erro ao carregar");
     } finally {
