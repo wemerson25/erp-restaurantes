@@ -50,7 +50,8 @@ export function BeneficiosContent() {
   const [loading, setLoading] = useState(true);
   const [usarModal, setUsarModal] = useState(false);
   const [selected, setSelected] = useState<BeneficioEmployee | null>(null);
-  const [folgaDate, setFolgaDate] = useState("");
+  const [folgaDate1, setFolgaDate1] = useState("");
+  const [folgaDate2, setFolgaDate2] = useState("");
   const [folgaError, setFolgaError] = useState("");
   const [folgaSaving, setFolgaSaving] = useState(false);
 
@@ -64,19 +65,33 @@ export function BeneficiosContent() {
   useEffect(() => { fetchBeneficios(); }, [fetchBeneficios]);
 
   async function handleUsarFolga() {
-    if (!selected?.folgaAtual || !folgaDate) return;
+    if (!selected?.folgaAtual || !folgaDate1) return;
     setFolgaError("");
     setFolgaSaving(true);
     try {
-      const res = await fetch("/api/beneficios/folgas-aniversario/usar", {
+      const payload = { funcionarioId: selected.funcionarioId, anoReferencia: selected.folgaAtual.anoReferencia };
+
+      const res1 = await fetch("/api/beneficios/folgas-aniversario/usar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ funcionarioId: selected.funcionarioId, anoReferencia: selected.folgaAtual.anoReferencia, data: folgaDate }),
+        body: JSON.stringify({ ...payload, data: folgaDate1 }),
       });
-      const data = await res.json();
-      if (!res.ok) { setFolgaError(data.error ?? "Erro ao registrar"); return; }
+      const data1 = await res1.json();
+      if (!res1.ok) { setFolgaError(data1.error ?? "Erro ao registrar 1ª folga"); return; }
+
+      if (folgaDate2) {
+        const res2 = await fetch("/api/beneficios/folgas-aniversario/usar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...payload, data: folgaDate2 }),
+        });
+        const data2 = await res2.json();
+        if (!res2.ok) { setFolgaError(data2.error ?? "Erro ao registrar 2ª folga"); fetchBeneficios(); return; }
+      }
+
       setUsarModal(false);
-      setFolgaDate("");
+      setFolgaDate1("");
+      setFolgaDate2("");
       fetchBeneficios();
     } finally {
       setFolgaSaving(false);
@@ -98,7 +113,8 @@ export function BeneficiosContent() {
 
   function openModal(b: BeneficioEmployee) {
     setSelected(b);
-    setFolgaDate("");
+    setFolgaDate1("");
+    setFolgaDate2("");
     setFolgaError("");
     setUsarModal(true);
   }
@@ -256,10 +272,22 @@ export function BeneficiosContent() {
             </div>
           )}
 
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Data da folga *</label>
-            <Input type="date" value={folgaDate} onChange={(e) => setFolgaDate(e.target.value)} />
-            <p className="text-xs text-gray-400 mt-1">Permitido: segunda a quinta, sem feriados ou vésperas.</p>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                1ª folga *
+              </label>
+              <Input type="date" value={folgaDate1} onChange={(e) => setFolgaDate1(e.target.value)} />
+            </div>
+            {selected?.folgaAtual && selected.folgaAtual.folgasDisponiveis === 2 && (
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  2ª folga <span className="text-gray-400 font-normal">(opcional)</span>
+                </label>
+                <Input type="date" value={folgaDate2} onChange={(e) => setFolgaDate2(e.target.value)} />
+              </div>
+            )}
+            <p className="text-xs text-gray-400">Permitido: segunda a quinta, sem feriados ou vésperas.</p>
           </div>
 
           {folgaError && (
@@ -271,7 +299,7 @@ export function BeneficiosContent() {
 
           <div className="flex justify-end gap-3 pt-2 border-t">
             <Button variant="outline" onClick={() => setUsarModal(false)}>Cancelar</Button>
-            <Button onClick={handleUsarFolga} disabled={folgaSaving || !folgaDate}>
+            <Button onClick={handleUsarFolga} disabled={folgaSaving || !folgaDate1}>
               {folgaSaving && <Loader2 size={14} className="animate-spin" />}
               Registrar
             </Button>
