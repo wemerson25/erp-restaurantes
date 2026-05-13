@@ -62,6 +62,7 @@ model Funcionario {
   cep            String
   dataAdmissao   DateTime
   dataDemissao   DateTime?
+  tipoDemissao   String?
   salario        Float
   tipoContrato   String           @default("CLT")
   status         String           @default("ATIVO")

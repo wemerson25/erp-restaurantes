@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { Plus, Search, Eye, Edit2, UserX, Loader2 } from "lucide-react";
+import { Plus, Search, Eye, Edit2, UserX, Loader2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -18,6 +18,8 @@ interface Funcionario {
   cpf: string;
   telefone: string;
   dataAdmissao: string;
+  dataDemissao?: string;
+  tipoDemissao?: string;
   salario: number;
   status: string;
   turno: string;
@@ -34,18 +36,34 @@ const statusVariant: Record<string, "success" | "warning" | "destructive" | "sec
 };
 
 const statusLabel: Record<string, string> = {
-  ATIVO: "Ativo",
-  FERIAS: "Férias",
-  AFASTADO: "Afastado",
-  DEMITIDO: "Demitido",
+  ATIVO: "Ativo", FERIAS: "Férias", AFASTADO: "Afastado", DEMITIDO: "Demitido",
 };
 
 const turnoLabel: Record<string, string> = {
-  MANHA: "Manhã",
-  TARDE: "Tarde",
-  NOITE: "Noite",
-  MISTO: "Misto",
+  MANHA: "Manhã", TARDE: "Tarde", NOITE: "Noite", MISTO: "Misto",
 };
+
+const TIPO_DEMISSAO_OPTIONS = [
+  { value: "SEM_JUSTA_CAUSA", label: "Sem Justa Causa" },
+  { value: "JUSTA_CAUSA",     label: "Justa Causa" },
+  { value: "ACORDO",          label: "Acordo" },
+];
+
+const tipoLabel: Record<string, string> = {
+  SEM_JUSTA_CAUSA: "Sem Justa Causa",
+  JUSTA_CAUSA:     "Justa Causa",
+  ACORDO:          "Acordo",
+};
+
+const tipoVariant: Record<string, string> = {
+  SEM_JUSTA_CAUSA: "warning",
+  JUSTA_CAUSA:     "destructive",
+  ACORDO:          "secondary",
+};
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export function FuncionariosContent() {
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
@@ -57,19 +75,22 @@ export function FuncionariosContent() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Funcionario | null>(null);
 
+  // Demissão modal
+  const [demitirTarget, setDemitirTarget] = useState<Funcionario | null>(null);
+  const [demitirMode, setDemitirMode] = useState<"demitir" | "editar">("demitir");
+  const [demitirForm, setDemitirForm] = useState({ dataDemissao: todayISO(), tipoDemissao: "SEM_JUSTA_CAUSA" });
+  const [demitirSaving, setDemitirSaving] = useState(false);
+
   const fetchFuncionarios = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
     if (search) params.set("search", search);
     const res = await fetch(`/api/funcionarios?${params}`);
-    const data = await res.json();
-    setFuncionarios(data);
+    setFuncionarios(await res.json());
     setLoading(false);
   }, [search]);
 
-  useEffect(() => {
-    fetchFuncionarios();
-  }, [fetchFuncionarios]);
+  useEffect(() => { fetchFuncionarios(); }, [fetchFuncionarios]);
 
   const restaurantesList = useMemo(() => {
     const names = new Set(funcionarios.map((f) => f.restaurante.nome));
@@ -89,9 +110,35 @@ export function FuncionariosContent() {
     });
   }, [funcionarios, tab, filterStatus, filterRestaurante]);
 
-  async function handleDemitir(id: string, nome: string) {
-    if (!confirm(`Confirmar demissão de ${nome}?`)) return;
-    await fetch(`/api/funcionarios/${id}`, { method: "DELETE" });
+  function openDemitir(f: Funcionario) {
+    setDemitirTarget(f);
+    setDemitirMode("demitir");
+    setDemitirForm({ dataDemissao: todayISO(), tipoDemissao: "SEM_JUSTA_CAUSA" });
+  }
+
+  function openEditarDemissao(f: Funcionario) {
+    setDemitirTarget(f);
+    setDemitirMode("editar");
+    setDemitirForm({
+      dataDemissao: f.dataDemissao ? f.dataDemissao.slice(0, 10) : todayISO(),
+      tipoDemissao: f.tipoDemissao ?? "SEM_JUSTA_CAUSA",
+    });
+  }
+
+  async function handleConfirmDemissao() {
+    if (!demitirTarget) return;
+    setDemitirSaving(true);
+    const payload =
+      demitirMode === "demitir"
+        ? { status: "DEMITIDO", dataDemissao: demitirForm.dataDemissao, tipoDemissao: demitirForm.tipoDemissao }
+        : { dataDemissao: demitirForm.dataDemissao, tipoDemissao: demitirForm.tipoDemissao };
+    await fetch(`/api/funcionarios/${demitirTarget.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    setDemitirTarget(null);
+    setDemitirSaving(false);
     fetchFuncionarios();
   }
 
@@ -138,9 +185,7 @@ export function FuncionariosContent() {
         )}
         <Select value={filterRestaurante} onChange={(e) => setFilterRestaurante(e.target.value)} className="w-48">
           <option value="">Todos os restaurantes</option>
-          {restaurantesList.map((r) => (
-            <option key={r} value={r}>{r}</option>
-          ))}
+          {restaurantesList.map((r) => <option key={r} value={r}>{r}</option>)}
         </Select>
       </div>
 
@@ -173,6 +218,16 @@ export function FuncionariosContent() {
                     <p className="text-xs text-gray-400 mt-0.5">{f.matricula} · {f.cargo.nome}</p>
                     <p className="text-xs text-gray-500 mt-0.5">{f.restaurante.nome} · {turnoLabel[f.turno] ?? f.turno}</p>
                     <p className="text-xs font-medium text-gray-700 mt-1">{formatCurrency(f.salario)}</p>
+                    {f.status === "DEMITIDO" && (
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        {f.dataDemissao && <p className="text-xs text-red-500">Demitido em {formatDate(f.dataDemissao)}</p>}
+                        {f.tipoDemissao && (
+                          <Badge variant={tipoVariant[f.tipoDemissao] as never ?? "secondary"}>
+                            {tipoLabel[f.tipoDemissao] ?? f.tipoDemissao}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <Link href={`/funcionarios/${f.id}`}>
@@ -181,8 +236,12 @@ export function FuncionariosContent() {
                     <Button size="icon" variant="ghost" onClick={() => { setEditTarget(f); setModalOpen(true); }}>
                       <Edit2 size={15} />
                     </Button>
-                    {f.status !== "DEMITIDO" && (
-                      <Button size="icon" variant="ghost" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleDemitir(f.id, f.nome)}>
+                    {f.status === "DEMITIDO" ? (
+                      <Button size="icon" variant="ghost" title="Editar demissão" className="text-orange-500 hover:text-orange-700 hover:bg-orange-50" onClick={() => openEditarDemissao(f)}>
+                        <Pencil size={15} />
+                      </Button>
+                    ) : (
+                      <Button size="icon" variant="ghost" title="Demitir" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => openDemitir(f)}>
                         <UserX size={15} />
                       </Button>
                     )}
@@ -202,7 +261,11 @@ export function FuncionariosContent() {
                     <th className="px-4 py-3 text-left font-semibold text-gray-600">Turno</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-600">Admissão</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-600">Salário</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600">Status</th>
+                    {tab === "inativos" ? (
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600">Demissão</th>
+                    ) : (
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600">Status</th>
+                    )}
                     <th className="px-4 py-3 text-right font-semibold text-gray-600">Ações</th>
                   </tr>
                 </thead>
@@ -225,11 +288,28 @@ export function FuncionariosContent() {
                       <td className="px-4 py-3 text-gray-600">{turnoLabel[f.turno] ?? f.turno}</td>
                       <td className="px-4 py-3 text-gray-600">{formatDate(f.dataAdmissao)}</td>
                       <td className="px-4 py-3 font-medium text-gray-900">{formatCurrency(f.salario)}</td>
-                      <td className="px-4 py-3">
-                        <Badge variant={statusVariant[f.status] ?? "secondary"}>
-                          {statusLabel[f.status] ?? f.status}
-                        </Badge>
-                      </td>
+                      {tab === "inativos" ? (
+                        <td className="px-4 py-3">
+                          <div className="space-y-1">
+                            {f.dataDemissao && (
+                              <p className="text-sm text-red-600 font-medium">{formatDate(f.dataDemissao)}</p>
+                            )}
+                            {f.tipoDemissao ? (
+                              <Badge variant={tipoVariant[f.tipoDemissao] as never ?? "secondary"}>
+                                {tipoLabel[f.tipoDemissao] ?? f.tipoDemissao}
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-gray-400">—</span>
+                            )}
+                          </div>
+                        </td>
+                      ) : (
+                        <td className="px-4 py-3">
+                          <Badge variant={statusVariant[f.status] ?? "secondary"}>
+                            {statusLabel[f.status] ?? f.status}
+                          </Badge>
+                        </td>
+                      )}
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">
                           <Link href={`/funcionarios/${f.id}`}>
@@ -238,8 +318,12 @@ export function FuncionariosContent() {
                           <Button size="icon" variant="ghost" title="Editar" onClick={() => { setEditTarget(f); setModalOpen(true); }}>
                             <Edit2 size={15} />
                           </Button>
-                          {f.status !== "DEMITIDO" && (
-                            <Button size="icon" variant="ghost" title="Demitir" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleDemitir(f.id, f.nome)}>
+                          {f.status === "DEMITIDO" ? (
+                            <Button size="icon" variant="ghost" title="Editar demissão" className="text-orange-500 hover:text-orange-700 hover:bg-orange-50" onClick={() => openEditarDemissao(f)}>
+                              <Pencil size={15} />
+                            </Button>
+                          ) : (
+                            <Button size="icon" variant="ghost" title="Demitir" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => openDemitir(f)}>
                               <UserX size={15} />
                             </Button>
                           )}
@@ -259,6 +343,7 @@ export function FuncionariosContent() {
         )}
       </Card>
 
+      {/* Funcionário create/edit modal */}
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -270,6 +355,64 @@ export function FuncionariosContent() {
           onSuccess={() => { setModalOpen(false); fetchFuncionarios(); }}
           onCancel={() => setModalOpen(false)}
         />
+      </Modal>
+
+      {/* Demissão modal */}
+      <Modal
+        open={!!demitirTarget}
+        onClose={() => setDemitirTarget(null)}
+        title={demitirMode === "demitir" ? "Registrar Demissão" : "Editar Demissão"}
+        size="sm"
+      >
+        <div className="p-6 space-y-4">
+          {demitirMode === "demitir" && (
+            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+              <p className="text-sm text-red-700 font-medium">
+                Demitir: <span className="font-bold">{demitirTarget?.nome}</span>
+              </p>
+              <p className="text-xs text-red-500 mt-0.5">Esta ação moverá o colaborador para inativos.</p>
+            </div>
+          )}
+          {demitirMode === "editar" && (
+            <p className="text-sm text-gray-600">
+              Editando demissão de <span className="font-bold text-gray-900">{demitirTarget?.nome}</span>
+            </p>
+          )}
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Data da Demissão *</label>
+            <input
+              type="date"
+              value={demitirForm.dataDemissao}
+              onChange={(e) => setDemitirForm(p => ({ ...p, dataDemissao: e.target.value }))}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Formato da Demissão *</label>
+            <Select
+              value={demitirForm.tipoDemissao}
+              onChange={(e) => setDemitirForm(p => ({ ...p, tipoDemissao: e.target.value }))}
+            >
+              {TIPO_DEMISSAO_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </Select>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2 border-t">
+            <Button variant="outline" onClick={() => setDemitirTarget(null)}>Cancelar</Button>
+            <Button
+              disabled={demitirSaving || !demitirForm.dataDemissao}
+              onClick={handleConfirmDemissao}
+              className={demitirMode === "demitir" ? "bg-red-600 hover:bg-red-700" : ""}
+            >
+              {demitirSaving && <Loader2 size={14} className="animate-spin" />}
+              {demitirMode === "demitir" ? "Confirmar Demissão" : "Salvar"}
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
