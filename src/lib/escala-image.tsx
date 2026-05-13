@@ -5,6 +5,9 @@ import { join } from "path";
 const DOW = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
 const FOLGA_TURNOS = new Set(["FOLGA", "FOLGA_B", "FERIAS", "ATESTADO", "AUSENTE"]);
 
+// One accent color per weekday
+const DAY_COLOR = ["#3B82F6","#059669","#D97706","#DC2626","#7C3AED","#DB2777","#64748B"];
+
 export interface ScheduleEntryForImage {
   funcionarioNome: string;
   setor: string;
@@ -12,11 +15,7 @@ export interface ScheduleEntryForImage {
   turno: string;
 }
 
-interface DayGroup {
-  folga: string[];
-  almoco: string[];
-  jantar: string[];
-}
+interface DayGroup { folga: string[]; almoco: string[]; jantar: string[] }
 
 function fmtShort(iso: string) {
   const [, m, d] = iso.split("-");
@@ -33,7 +32,7 @@ export async function generateEscalaImage(
   semanaLabel: string,
   restauranteNome?: string,
 ): Promise<Buffer> {
-  // ── Group schedules by day → folga / almoço / jantar ─────────────
+  // ── Group by day ─────────────────────────────────────────────────
   const byDay = new Map<string, DayGroup>();
   for (const d of dias) byDay.set(d, { folga: [], almoco: [], jantar: [] });
 
@@ -54,23 +53,30 @@ export async function generateEscalaImage(
     }
   }
 
-  // ── Dimensions ───────────────────────────────────────────────────
-  const W = 700;
-  const PAD = 24;
-  const TITLE_H = 64;
-  const DIA_W = 106;
-  const COL_W = Math.floor((W - PAD * 2 - DIA_W) / 3);
-  const CELL_PAD = 8;
-  const NAME_H = 22;
-  const HEADER_H = 44;
+  // ── Layout constants ─────────────────────────────────────────────
+  const W        = 740;
+  const PAD      = 22;
+  const CARD_W   = W - PAD * 2;
+  const COL_W    = Math.floor(CARD_W / 3);
+  const HDR_H    = 46;   // colored day header
+  const LABEL_H  = 20;   // shift-label row
+  const CHIP_H   = 28;   // height of one name chip
+  const CHIP_GAP = 5;    // vertical gap between chips
+  const BODY_PAD = 12;   // vertical padding around body content
+  const CARD_GAP = 8;
 
-  const rowHeights = dias.map(d => {
+  // Per-day card height = header + body
+  // body = BODY_PAD + LABEL_H + gap(5) + maxNames*(CHIP_H+CHIP_GAP)-CHIP_GAP + BODY_PAD
+  const cardHeights = dias.map(d => {
     const g = byDay.get(d)!;
-    const maxNames = Math.max(g.folga.length, g.almoco.length, g.jantar.length, 1);
-    return maxNames * NAME_H + CELL_PAD * 2;
+    const maxN = Math.max(g.almoco.length, g.jantar.length, g.folga.length, 1);
+    const bodyH = BODY_PAD + LABEL_H + 5 + maxN * (CHIP_H + CHIP_GAP) - CHIP_GAP + BODY_PAD;
+    return HDR_H + bodyH;
   });
-  const tableH = HEADER_H + rowHeights.reduce((a, b) => a + b, 0);
-  const totalH = PAD + TITLE_H + 12 + tableH + PAD + 24;
+
+  const totalCardsH = cardHeights.reduce((a, b) => a + b, 0) + CARD_GAP * (dias.length - 1);
+  const TITLE_H   = 72;
+  const totalH    = PAD + TITLE_H + 12 + totalCardsH + PAD + 26;
 
   // ── Font ─────────────────────────────────────────────────────────
   let fontData: ArrayBuffer | undefined;
@@ -78,187 +84,182 @@ export async function generateEscalaImage(
     fontData = readFileSync(
       join(process.cwd(), "node_modules/next/dist/compiled/@vercel/og/Geist-Regular.ttf"),
     ).buffer;
-  } catch { /* use built-in fallback */ }
+  } catch { /* built-in fallback */ }
 
-  const cols = [
-    { label: "Folga",  emoji: "😴", headerBg: "#F3F4F6", nameBg: "#F9FAFB", nameColor: "#6B7280" },
-    { label: "Almoço", emoji: "🍽️", headerBg: "#DBEAFE", nameBg: "#EFF6FF", nameColor: "#1D4ED8" },
-    { label: "Jantar", emoji: "🌙", headerBg: "#EDE9FE", nameBg: "#F5F3FF", nameColor: "#7C3AED" },
-  ];
+  // Column definitions
+  const COLS = [
+    { key: "almoco", label: "🍽  Almoço", lColor: "#B45309", chipBg: "#FFF7ED", chipBdr: "#FED7AA", chipTxt: "#92400E" },
+    { key: "jantar", label: "🌙  Jantar",  lColor: "#6D28D9", chipBg: "#EDE9FE", chipBdr: "#C4B5FD", chipTxt: "#5B21B6" },
+    { key: "folga",  label: "😴  Folga",   lColor: "#6B7280", chipBg: "#F3F4F6", chipBdr: "#D1D5DB", chipTxt: "#6B7280" },
+  ] as const;
 
-  const response = new ImageResponse(
+  const resp = new ImageResponse(
     (
       <div
         style={{
-          display: "flex",
-          flexDirection: "column",
-          width: W,
-          height: totalH,
-          background: "#F8FAFC",
+          display: "flex", flexDirection: "column",
+          width: W, height: totalH,
+          background: "#EEF2F7",
           fontFamily: "Geist, sans-serif",
           padding: PAD,
         }}
       >
-        {/* Title bar */}
+        {/* ── HEADER ── */}
         <div
           style={{
-            display: "flex",
-            alignItems: "center",
-            background: "white",
-            borderRadius: 10,
-            padding: "12px 18px",
-            marginBottom: 12,
-            border: "1.5px solid #E5E7EB",
-            gap: 12,
+            display: "flex", alignItems: "center",
+            background: "white", borderRadius: 12,
+            padding: "14px 20px", marginBottom: 12,
+            border: "1.5px solid #E2E8F0", gap: 14,
           }}
         >
           <div
             style={{
-              width: 38,
-              height: 38,
-              background: "#EEF2FF",
-              borderRadius: 9,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 20,
+              width: 44, height: 44, background: "#EEF2FF",
+              borderRadius: 11, display: "flex",
+              alignItems: "center", justifyContent: "center", fontSize: 24,
             }}
           >
             📅
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-            <span style={{ fontSize: 17, fontWeight: 700, color: "#111827" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <span style={{ fontSize: 20, fontWeight: 700, color: "#0F172A" }}>
               Escala Semanal — {semanaLabel}
             </span>
             {restauranteNome && (
-              <span style={{ fontSize: 12, color: "#6B7280" }}>{restauranteNome}</span>
+              <span style={{ fontSize: 12, color: "#64748B" }}>{restauranteNome}</span>
             )}
           </div>
         </div>
 
-        {/* Table */}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            background: "white",
-            borderRadius: 10,
-            border: "1.5px solid #E5E7EB",
-            overflow: "hidden",
-          }}
-        >
-          {/* Header row */}
-          <div
-            style={{
-              display: "flex",
-              borderBottom: "2px solid #E2E8F0",
-            }}
-          >
-            <div
-              style={{
-                width: DIA_W,
-                padding: "10px 14px",
-                fontSize: 11,
-                fontWeight: 700,
-                color: "#94A3B8",
-                textTransform: "uppercase",
-                letterSpacing: 1,
-                background: "#F8FAFC",
-              }}
-            >
-              DIA
-            </div>
-            {cols.map((c, i) => (
-              <div
-                key={i}
-                style={{
-                  width: COL_W,
-                  padding: "10px 0",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 5,
-                  borderLeft: "1.5px solid #E2E8F0",
-                  background: c.headerBg,
-                }}
-              >
-                <span style={{ fontSize: 15 }}>{c.emoji}</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: c.nameColor }}>{c.label}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Day rows */}
+        {/* ── DAY CARDS ── */}
+        <div style={{ display: "flex", flexDirection: "column", gap: CARD_GAP }}>
           {dias.map((d, di) => {
             const g = byDay.get(d)!;
-            const nameCols = [g.folga, g.almoco, g.jantar];
+            const namesByCol: Record<string, string[]> = {
+              almoco: g.almoco,
+              jantar: g.jantar,
+              folga:  g.folga,
+            };
+            const maxN = Math.max(g.almoco.length, g.jantar.length, g.folga.length, 1);
+
             return (
               <div
                 key={d}
                 style={{
-                  display: "flex",
-                  borderBottom: di < dias.length - 1 ? "1px solid #F1F5F9" : "none",
-                  minHeight: rowHeights[di],
+                  display: "flex", flexDirection: "column",
+                  background: "white", borderRadius: 10,
+                  overflow: "hidden",
+                  border: "1.5px solid #E2E8F0",
+                  width: CARD_W,
+                  height: cardHeights[di],
                 }}
               >
-                {/* Day label */}
+                {/* Colored day header */}
                 <div
                   style={{
-                    width: DIA_W,
-                    padding: "10px 14px",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    background: "#FAFAFA",
-                    borderRight: "1px solid #F1F5F9",
+                    display: "flex", alignItems: "center",
+                    height: HDR_H,
+                    background: DAY_COLOR[di],
+                    padding: "0 18px", gap: 10,
                   }}
                 >
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>{DOW[di]}</span>
-                  <span style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>{fmtShort(d)}</span>
-                </div>
-
-                {/* Shift cells */}
-                {nameCols.map((names, ci) => (
-                  <div
-                    key={ci}
+                  <span style={{ fontSize: 16, fontWeight: 700, color: "white", letterSpacing: 0.3 }}>
+                    {DOW[di]}
+                  </span>
+                  <span
                     style={{
-                      width: COL_W,
-                      padding: `${CELL_PAD}px 12px`,
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "center",
-                      gap: 2,
-                      borderLeft: "1px solid #F1F5F9",
-                      background: names.length > 0 ? cols[ci].nameBg : "transparent",
+                      fontSize: 14, color: "rgba(255,255,255,0.75)",
+                      fontWeight: 500,
                     }}
                   >
-                    {names.length === 0 ? (
-                      <span style={{ color: "#D1D5DB", fontSize: 12 }}>—</span>
-                    ) : (
-                      names.map((n, ni) => (
+                    {fmtShort(d)}
+                  </span>
+                </div>
+
+                {/* Body: 3 columns */}
+                <div
+                  style={{
+                    display: "flex",
+                    flex: 1,
+                    padding: `${BODY_PAD}px 0`,
+                  }}
+                >
+                  {COLS.map((col, ci) => {
+                    const names = namesByCol[col.key];
+                    return (
+                      <div
+                        key={col.key}
+                        style={{
+                          display: "flex", flexDirection: "column",
+                          width: COL_W,
+                          padding: `0 ${BODY_PAD}px`,
+                          borderLeft: ci > 0 ? "1px solid #F1F5F9" : "none",
+                          gap: 0,
+                        }}
+                      >
+                        {/* Shift label */}
                         <span
-                          key={ni}
-                          style={{ fontSize: 13, fontWeight: 600, color: cols[ci].nameColor, lineHeight: 1.5 }}
+                          style={{
+                            fontSize: 12, fontWeight: 700,
+                            color: col.lColor,
+                            height: LABEL_H,
+                            marginBottom: 5,
+                          }}
                         >
-                          {n}
+                          {col.label}
                         </span>
-                      ))
-                    )}
-                  </div>
-                ))}
+
+                        {/* Name chips */}
+                        <div
+                          style={{
+                            display: "flex", flexDirection: "column",
+                            gap: CHIP_GAP,
+                          }}
+                        >
+                          {names.length === 0 ? (
+                            <span style={{ fontSize: 12, color: "#CBD5E1", height: CHIP_H, display: "flex", alignItems: "center" }}>
+                              —
+                            </span>
+                          ) : (
+                            names.map((name, ni) => (
+                              <div
+                                key={ni}
+                                style={{
+                                  display: "flex", alignItems: "center",
+                                  height: CHIP_H,
+                                  background: col.chipBg,
+                                  border: `1.5px solid ${col.chipBdr}`,
+                                  borderRadius: 7,
+                                  padding: "0 10px",
+                                  alignSelf: "flex-start",
+                                }}
+                              >
+                                <span style={{ fontSize: 13, fontWeight: 700, color: col.chipTxt }}>
+                                  {name}
+                                </span>
+                              </div>
+                            ))
+                          )}
+                          {/* Invisible spacer to keep consistent row height */}
+                          {names.length < maxN && names.length > 0 && (
+                            <div style={{ display: "flex", height: (maxN - names.length) * (CHIP_H + CHIP_GAP) }} />
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             );
           })}
         </div>
 
-        {/* Footer */}
+        {/* ── FOOTER ── */}
         <div
           style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            marginTop: 8,
-            fontSize: 10,
-            color: "#9CA3AF",
+            display: "flex", justifyContent: "flex-end",
+            marginTop: 10, fontSize: 10, color: "#94A3B8",
           }}
         >
           ERP Restaurantes — RH
@@ -272,5 +273,5 @@ export async function generateEscalaImage(
     },
   );
 
-  return Buffer.from(await response.arrayBuffer());
+  return Buffer.from(await resp.arrayBuffer());
 }
