@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, Loader2, Briefcase, Users, Pencil, Link2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +32,7 @@ const statusVariant: Record<string, string> = {
 };
 
 export function VagasContent() {
+  const router = useRouter();
   const [vagas, setVagas] = useState<Vaga[]>([]);
   const [restaurantes, setRestaurantes] = useState<Restaurante[]>([]);
   const [loading, setLoading] = useState(true);
@@ -210,10 +212,13 @@ export function VagasContent() {
                   <p><span className="font-medium text-gray-700">Publicada em:</span> {formatDate(v.createdAt)}</p>
                 </div>
                 <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <Users size={14} className="text-gray-400" />
-                    <span className="text-sm font-medium text-gray-700">{v._count.candidaturas} candidatura(s)</span>
-                  </div>
+                  <button
+                    onClick={() => router.push(`/vagas/${v.id}`)}
+                    className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline transition-colors"
+                  >
+                    <Users size={14} />
+                    {v._count.candidaturas} candidatura(s)
+                  </button>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => copyLink(v.id)}
