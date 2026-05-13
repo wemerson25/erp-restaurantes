@@ -51,11 +51,14 @@ export async function POST(req: NextRequest) {
 
     const [folgasAnuais, folgasExtra] = await Promise.all([
       prisma.folgaAniversario.findMany({
-        where: { funcionarioId },
+        where: { funcionarioId, dataValidade: { gte: now } },
         orderBy: { anoReferencia: "asc" },
       }),
       prisma.folgaBeneficioExtra.findMany({
-        where: { funcionarioId },
+        where: {
+          funcionarioId,
+          OR: [{ dataValidade: null }, { dataValidade: { gte: now } }],
+        },
         orderBy: { createdAt: "desc" },
       }),
     ]);
@@ -68,16 +71,11 @@ export async function POST(req: NextRequest) {
 
     for (const fa of folgasAnuais) {
       const disponivel = 2 - fa.folgasUsadas;
-      const valida = new Date(fa.dataValidade) >= now;
       linhas.push(`📌 *Folga Benefício Anual — ${fa.anoReferencia}º ano de empresa*`);
-      if (valida) {
-        linhas.push(disponivel > 0
-          ? `   ✅ *${disponivel} folga${disponivel > 1 ? "s" : ""} disponível${disponivel > 1 ? "s" : ""}*`
-          : `   ✅ Já utilizado`);
-        linhas.push(`   📅 Válido até *${fmtDate(fa.dataValidade)}*`);
-      } else {
-        linhas.push(`   ⚠️ Expirado em ${fmtDate(fa.dataValidade)}`);
-      }
+      linhas.push(disponivel > 0
+        ? `   ✅ *${disponivel} folga${disponivel > 1 ? "s" : ""} disponível${disponivel > 1 ? "s" : ""}*`
+        : `   ✅ Já utilizado`);
+      linhas.push(`   📅 Válido até *${fmtDate(fa.dataValidade)}*`);
       linhas.push("");
     }
 
