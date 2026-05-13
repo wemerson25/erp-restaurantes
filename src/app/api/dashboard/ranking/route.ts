@@ -57,6 +57,7 @@ export async function GET(req: NextRequest) {
       by: ["funcionarioId"],
       where: dateRange ? { ocorrencia: "FALTA", data: dateRange } : { ocorrencia: "FALTA" },
       _count: { funcionarioId: true },
+      orderBy: { _count: { funcionarioId: "desc" } },
     }),
     prisma.ausencia.groupBy({
       by: ["funcionarioId"],

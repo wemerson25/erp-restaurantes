@@ -42,7 +42,7 @@ export async function GET() {
     feriasMes,
     admissoesMes,
     demissoesMes,
-    funcionariosPorRestaurante,
+    funcionariosPorRestauranteRaw,
     rawAtrasos,
     rawFaltas,
     rawAtestados,
@@ -63,9 +63,11 @@ export async function GET() {
     prisma.funcionario.count({
       where: { dataDemissao: { gte: monthStart } },
     }),
-    prisma.restaurante.findMany({
-      where: { ativo: true },
-      select: { nome: true, _count: { select: { funcionarios: true } } },
+    // Conta só ATIVOS por restaurante (via groupBy para ser compatível com Turso)
+    prisma.funcionario.groupBy({
+      by: ["restauranteId"],
+      where: { status: "ATIVO" },
+      _count: { restauranteId: true },
     }),
     // Ranking: Atrasos do mês anterior (cargos de confiança excluídos)
     prisma.registroPonto.groupBy({
@@ -103,6 +105,20 @@ export async function GET() {
     }),
   ]);
 
+  // Busca nomes dos restaurantes para montar o gráfico
+  const restaurantesAtivos = await prisma.restaurante.findMany({
+    where: { ativo: true },
+    select: { id: true, nome: true },
+    orderBy: { nome: "asc" },
+  });
+  const countByRestaurante = new Map(
+    funcionariosPorRestauranteRaw.map((r) => [r.restauranteId, r._count.restauranteId]),
+  );
+  const funcionariosPorRestaurante = restaurantesAtivos.map((r) => ({
+    nome: r.nome,
+    total: countByRestaurante.get(r.id) ?? 0,
+  }));
+
   const [rankingAtrasos, rankingFaltas, rankingAtestados, rankingAdvertencias] =
     await Promise.all([
       buildRanking(rawAtrasos),
@@ -117,10 +133,7 @@ export async function GET() {
     feriasMes,
     admissoesMes,
     demissoesMes,
-    funcionariosPorRestaurante: funcionariosPorRestaurante.map((r) => ({
-      nome: r.nome,
-      total: r._count.funcionarios,
-    })),
+    funcionariosPorRestaurante,
     rankingAtrasos,
     rankingFaltas,
     rankingAtestados,

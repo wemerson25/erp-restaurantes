@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, Building2, Clock, Umbrella,
-  DollarSign, Briefcase, ChefHat, LogOut, Menu, X, FileX, Gift, CalendarDays
+  DollarSign, Briefcase, ChefHat, LogOut, Menu, X, FileX, Gift, CalendarDays, CalendarRange, Settings
 } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
@@ -19,8 +19,10 @@ const navItems = [
   { href: "/folha",        label: "Folha de Pagamento",  icon: DollarSign },
   { href: "/beneficios",   label: "Benefícios",           icon: Gift },
   { href: "/feriados",     label: "Feriados/Datas Import.", icon: CalendarDays },
+  { href: "/escala",       label: "Escala",               icon: CalendarRange },
   { href: "/vagas",        label: "Recrutamento",        icon: Briefcase },
-  { href: "/cargos",       label: "Cargos",              icon: ChefHat },
+  { href: "/cargos",        label: "Cargos",              icon: ChefHat },
+  { href: "/configuracoes", label: "Configurações",       icon: Settings },
 ];
 
 export function Sidebar() {

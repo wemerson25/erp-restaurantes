@@ -368,12 +368,22 @@ export function DashboardContent() {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={data.funcionariosPorRestaurante} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                <BarChart data={data.funcionariosPorRestaurante} margin={{ top: 5, right: 20, left: 0, bottom: 55 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="nome" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb", fontSize: "12px" }} />
-                  <Bar dataKey="total" fill="#C41E2E" radius={[4, 4, 0, 0]} name="Funcionários" />
+                  <XAxis
+                    dataKey="nome"
+                    tick={{ fontSize: 10 }}
+                    angle={-30}
+                    textAnchor="end"
+                    interval={0}
+                    tickFormatter={(v: string) => v.length > 18 ? v.slice(0, 17) + "…" : v}
+                  />
+                  <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb", fontSize: "12px" }}
+                    formatter={(value) => [value, "Funcionários ativos"]}
+                  />
+                  <Bar dataKey="total" fill="#C41E2E" radius={[4, 4, 0, 0]} name="Funcionários ativos" />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>

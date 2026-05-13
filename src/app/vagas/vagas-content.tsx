@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { Plus, Loader2, Briefcase, Users } from "lucide-react";
+import { Plus, Loader2, Briefcase, Users, Pencil, Link2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -36,10 +36,16 @@ export function VagasContent() {
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState("ABERTA");
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingVaga, setEditingVaga] = useState<Vaga | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copiedAll, setCopiedAll] = useState(false);
   const [form, setForm] = useState({
     titulo: "", descricao: "", requisitos: "", salario: "", tipoContrato: "CLT", restauranteId: "", status: "ABERTA",
+  });
+  const [editForm, setEditForm] = useState({
+    titulo: "", descricao: "", requisitos: "", salario: "", tipoContrato: "CLT", status: "ABERTA",
   });
 
   const fetchVagas = useCallback(async () => {
@@ -70,6 +76,51 @@ export function VagasContent() {
       fetchVagas();
     } catch { setError("Erro de conexão"); }
     finally { setSaving(false); }
+  }
+
+  function openEdit(v: Vaga) {
+    setEditingVaga(v);
+    setEditForm({
+      titulo: v.titulo,
+      descricao: v.descricao,
+      requisitos: v.requisitos,
+      salario: v.salario ? String(v.salario) : "",
+      tipoContrato: v.tipoContrato,
+      status: v.status,
+    });
+    setError("");
+  }
+
+  async function handleEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingVaga) return;
+    setError("");
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/vagas/${editingVaga.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editForm),
+      });
+      if (!res.ok) { setError((await res.json()).error ?? "Erro"); return; }
+      setEditingVaga(null);
+      fetchVagas();
+    } catch { setError("Erro de conexão"); }
+    finally { setSaving(false); }
+  }
+
+  function copyLink(vagaId?: string) {
+    const base = window.location.origin + "/candidatar";
+    const url = vagaId ? `${base}?vaga=${vagaId}` : base;
+    navigator.clipboard.writeText(url).then(() => {
+      if (vagaId) {
+        setCopiedId(vagaId);
+        setTimeout(() => setCopiedId(null), 2000);
+      } else {
+        setCopiedAll(true);
+        setTimeout(() => setCopiedAll(false), 2000);
+      }
+    });
   }
 
   const abertas = vagas.filter((v) => v.status === "ABERTA").length;
@@ -115,14 +166,20 @@ export function VagasContent() {
       </div>
 
       {/* Toolbar */}
-      <div className="flex gap-3 items-center justify-between">
+      <div className="flex gap-3 items-center justify-between flex-wrap">
         <Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="w-40">
           <option value="">Todas</option>
           <option value="ABERTA">Abertas</option>
           <option value="FECHADA">Fechadas</option>
           <option value="SUSPENSA">Suspensas</option>
         </Select>
-        <Button onClick={() => setModalOpen(true)}><Plus size={16} /> Nova Vaga</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => copyLink()}>
+            {copiedAll ? <Check size={16} className="text-green-600" /> : <Link2 size={16} />}
+            {copiedAll ? "Copiado!" : "Link Geral"}
+          </Button>
+          <Button onClick={() => setModalOpen(true)}><Plus size={16} /> Nova Vaga</Button>
+        </div>
       </div>
 
       {/* Cards de vagas */}
@@ -152,15 +209,91 @@ export function VagasContent() {
                   {v.salario && <p><span className="font-medium text-gray-700">Salário:</span> {formatCurrency(v.salario)}</p>}
                   <p><span className="font-medium text-gray-700">Publicada em:</span> {formatDate(v.createdAt)}</p>
                 </div>
-                <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-2">
-                  <Users size={14} className="text-gray-400" />
-                  <span className="text-sm font-medium text-gray-700">{v._count.candidaturas} candidatura(s)</span>
+                <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Users size={14} className="text-gray-400" />
+                    <span className="text-sm font-medium text-gray-700">{v._count.candidaturas} candidatura(s)</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => copyLink(v.id)}
+                      title="Copiar link de candidatura"
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-orange-600 hover:bg-orange-50 transition-colors"
+                    >
+                      {copiedId === v.id ? <Check size={14} className="text-green-600" /> : <Link2 size={14} />}
+                    </button>
+                    <button
+                      onClick={() => openEdit(v)}
+                      title="Editar vaga"
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      {/* Edit Modal */}
+      <Modal open={!!editingVaga} onClose={() => setEditingVaga(null)} title="Editar Vaga" size="lg">
+        <form onSubmit={handleEdit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Título da Vaga *</label>
+            <Input value={editForm.titulo} onChange={(e) => setEditForm((p) => ({ ...p, titulo: e.target.value }))} required />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Tipo de Contrato</label>
+              <Select value={editForm.tipoContrato} onChange={(e) => setEditForm((p) => ({ ...p, tipoContrato: e.target.value }))}>
+                <option value="CLT">CLT</option>
+                <option value="PJ">PJ</option>
+                <option value="TEMPORARIO">Temporário</option>
+                <option value="ESTAGIO">Estágio</option>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Salário (R$)</label>
+              <Input type="number" step="0.01" value={editForm.salario} onChange={(e) => setEditForm((p) => ({ ...p, salario: e.target.value }))} />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
+            <Select value={editForm.status} onChange={(e) => setEditForm((p) => ({ ...p, status: e.target.value }))}>
+              <option value="ABERTA">Aberta</option>
+              <option value="SUSPENSA">Suspensa</option>
+              <option value="FECHADA">Fechada</option>
+            </Select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Descrição *</label>
+            <Textarea value={editForm.descricao} onChange={(e) => setEditForm((p) => ({ ...p, descricao: e.target.value }))} rows={3} required />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Requisitos *</label>
+            <Textarea value={editForm.requisitos} onChange={(e) => setEditForm((p) => ({ ...p, requisitos: e.target.value }))} rows={2} required />
+          </div>
+          {error && <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">{error}</div>}
+          <div className="flex justify-between items-center pt-2 border-t">
+            <button
+              type="button"
+              onClick={() => copyLink(editingVaga?.id)}
+              className="flex items-center gap-1.5 text-sm text-orange-600 hover:underline"
+            >
+              {copiedId === editingVaga?.id ? <Check size={14} /> : <Link2 size={14} />}
+              {copiedId === editingVaga?.id ? "Link copiado!" : "Copiar link desta vaga"}
+            </button>
+            <div className="flex gap-3">
+              <Button type="button" variant="outline" onClick={() => setEditingVaga(null)}>Cancelar</Button>
+              <Button type="submit" disabled={saving}>
+                {saving && <Loader2 size={14} className="animate-spin" />} Salvar Alterações
+              </Button>
+            </div>
+          </div>
+        </form>
+      </Modal>
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nova Vaga" size="lg">
         <form onSubmit={handleSubmit} className="p-6 space-y-4">

@@ -66,8 +66,11 @@ export async function POST(req: NextRequest) {
     if (duplicateUso)
       return NextResponse.json({ error: "Já existe uma folga registrada nessa data" }, { status: 400 });
 
+    // Busca ponto do dia — verifica tanto meia-noite UTC quanto noon UTC por segurança
+    const dataInicioUTC = new Date(`${dateStr}T00:00:00Z`);
+    const dataFimUTC    = new Date(`${dateStr}T23:59:59Z`);
     const existingPonto = await prisma.registroPonto.findFirst({
-      where: { funcionarioId, data: new Date(`${dateStr}T00:00:00`) },
+      where: { funcionarioId, data: { gte: dataInicioUTC, lte: dataFimUTC } },
     });
 
     await prisma.$transaction([
@@ -86,7 +89,7 @@ export async function POST(req: NextRequest) {
         : [prisma.registroPonto.create({
             data: {
               funcionarioId,
-              data: new Date(`${dateStr}T00:00:00`),
+              data: new Date(`${dateStr}T00:00:00Z`),
               ocorrencia: "FOLGA_B",
               horasTrabalhadas: 0,
               horasExtras: 0,

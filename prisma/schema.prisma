@@ -17,19 +17,21 @@ model User {
 }
 
 model Restaurante {
-  id           String        @id @default(cuid())
-  nome         String
-  cnpj         String        @unique
-  endereco     String
-  cidade       String
-  estado       String
-  telefone     String?
-  email        String?
-  ativo        Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  funcionarios Funcionario[]
-  vagas        Vaga[]
+  id                   String                @id @default(cuid())
+  nome                 String
+  cnpj                 String                @unique
+  endereco             String
+  cidade               String
+  estado               String
+  telefone             String?
+  email                String?
+  ativo                Boolean               @default(true)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  funcionarios         Funcionario[]
+  vagas                Vaga[]
+  schedules            Schedule[]
+  scheduleRequirements ScheduleRequirement[]
 }
 
 model Cargo {
@@ -78,6 +80,9 @@ model Funcionario {
   ausencias      Ausencia[]
   candidatura       Candidatura?
   folgasAniversario FolgaAniversario[]
+  schedules         Schedule[]
+  setoresEscala     FuncionarioSetor[]
+  folgasExtra       FolgaBeneficioExtra[]
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 }
@@ -226,4 +231,67 @@ model Candidatura {
   funcionario   Funcionario? @relation(fields: [funcionarioId], references: [id])
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
+}
+
+model Schedule {
+  id             String      @id @default(cuid())
+  funcionarioId  String
+  restauranteId  String
+  data           DateTime
+  setor          String
+  turno          String
+  horarioEntrada String?
+  horarioSaida   String?
+  observacao     String?
+  status         String      @default("PLANEJADA")
+  funcionario    Funcionario @relation(fields: [funcionarioId], references: [id])
+  restaurante    Restaurante @relation(fields: [restauranteId], references: [id])
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+}
+
+model FolgaBeneficioExtra {
+  id            String      @id @default(cuid())
+  funcionarioId String
+  motivo        String
+  dataConcessao DateTime
+  dataValidade  DateTime?
+  dataUso       DateTime?
+  status        String      @default("DISPONIVEL")
+  observacoes   String?
+  funcionario   Funcionario @relation(fields: [funcionarioId], references: [id])
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model FuncionarioSetor {
+  id            String      @id @default(cuid())
+  funcionarioId String
+  setor         String
+  funcionario   Funcionario @relation(fields: [funcionarioId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+
+  @@unique([funcionarioId, setor])
+}
+
+model Gestor {
+  id        String   @id
+  nome      String
+  telefone  String
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ScheduleRequirement {
+  id                 String      @id @default(cuid())
+  restauranteId      String
+  setor              String
+  turno              String
+  minimoFuncionarios Int         @default(1)
+  restaurante        Restaurante @relation(fields: [restauranteId], references: [id])
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  @@unique([restauranteId, setor, turno])
 }
