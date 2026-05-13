@@ -5,7 +5,6 @@ import { join } from "path";
 const DOW = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
 const FOLGA_TURNOS = new Set(["FOLGA", "FOLGA_B", "FERIAS", "ATESTADO", "AUSENTE"]);
 
-// One accent color per weekday
 const DAY_COLOR = ["#3B82F6","#059669","#D97706","#DC2626","#7C3AED","#DB2777","#64748B"];
 
 export interface ScheduleEntryForImage {
@@ -53,30 +52,28 @@ export async function generateEscalaImage(
     }
   }
 
-  // ── Layout constants ─────────────────────────────────────────────
-  const W        = 740;
-  const PAD      = 22;
+  // ── Layout constants (1080px wide — sharp on any phone) ──────────
+  const W        = 1080;
+  const PAD      = 36;
   const CARD_W   = W - PAD * 2;
   const COL_W    = Math.floor(CARD_W / 3);
-  const HDR_H    = 46;   // colored day header
-  const LABEL_H  = 20;   // shift-label row
-  const CHIP_H   = 28;   // height of one name chip
-  const CHIP_GAP = 5;    // vertical gap between chips
-  const BODY_PAD = 12;   // vertical padding around body content
-  const CARD_GAP = 8;
+  const HDR_H    = 58;    // colored day header
+  const LABEL_H  = 26;    // shift-label row
+  const CHIP_H   = 36;    // name chip height
+  const CHIP_GAP = 7;     // gap between chips
+  const BODY_PAD = 18;    // vertical padding in body
+  const CARD_GAP = 12;
 
-  // Per-day card height = header + body
-  // body = BODY_PAD + LABEL_H + gap(5) + maxNames*(CHIP_H+CHIP_GAP)-CHIP_GAP + BODY_PAD
   const cardHeights = dias.map(d => {
     const g = byDay.get(d)!;
     const maxN = Math.max(g.almoco.length, g.jantar.length, g.folga.length, 1);
-    const bodyH = BODY_PAD + LABEL_H + 5 + maxN * (CHIP_H + CHIP_GAP) - CHIP_GAP + BODY_PAD;
+    const bodyH = BODY_PAD + LABEL_H + 6 + maxN * (CHIP_H + CHIP_GAP) - CHIP_GAP + BODY_PAD;
     return HDR_H + bodyH;
   });
 
   const totalCardsH = cardHeights.reduce((a, b) => a + b, 0) + CARD_GAP * (dias.length - 1);
-  const TITLE_H   = 72;
-  const totalH    = PAD + TITLE_H + 12 + totalCardsH + PAD + 26;
+  const TITLE_H = 94;
+  const totalH  = PAD + TITLE_H + 16 + totalCardsH + PAD + 36;
 
   // ── Font ─────────────────────────────────────────────────────────
   let fontData: ArrayBuffer | undefined;
@@ -86,7 +83,6 @@ export async function generateEscalaImage(
     ).buffer;
   } catch { /* built-in fallback */ }
 
-  // Column definitions
   const COLS = [
     { key: "almoco", label: "🍽  Almoço", lColor: "#B45309", chipBg: "#FFF7ED", chipBdr: "#FED7AA", chipTxt: "#92400E" },
     { key: "jantar", label: "🌙  Jantar",  lColor: "#6D28D9", chipBg: "#EDE9FE", chipBdr: "#C4B5FD", chipTxt: "#5B21B6" },
@@ -102,32 +98,34 @@ export async function generateEscalaImage(
           background: "#EEF2F7",
           fontFamily: "Geist, sans-serif",
           padding: PAD,
+          gap: 0,
         }}
       >
-        {/* ── HEADER ── */}
+        {/* ── TITLE BAR ── */}
         <div
           style={{
             display: "flex", alignItems: "center",
-            background: "white", borderRadius: 12,
-            padding: "14px 20px", marginBottom: 12,
-            border: "1.5px solid #E2E8F0", gap: 14,
+            height: TITLE_H,
+            background: "white", borderRadius: 16,
+            padding: "0 26px", marginBottom: 16,
+            border: "1.5px solid #E2E8F0", gap: 18,
           }}
         >
           <div
             style={{
-              width: 44, height: 44, background: "#EEF2FF",
-              borderRadius: 11, display: "flex",
-              alignItems: "center", justifyContent: "center", fontSize: 24,
+              width: 54, height: 54, background: "#EEF2FF",
+              borderRadius: 14, display: "flex",
+              alignItems: "center", justifyContent: "center", fontSize: 28,
             }}
           >
             📅
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <span style={{ fontSize: 20, fontWeight: 700, color: "#0F172A" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <span style={{ fontSize: 26, fontWeight: 700, color: "#0F172A" }}>
               Escala Semanal — {semanaLabel}
             </span>
             {restauranteNome && (
-              <span style={{ fontSize: 12, color: "#64748B" }}>{restauranteNome}</span>
+              <span style={{ fontSize: 15, color: "#64748B" }}>{restauranteNome}</span>
             )}
           </div>
         </div>
@@ -137,9 +135,7 @@ export async function generateEscalaImage(
           {dias.map((d, di) => {
             const g = byDay.get(d)!;
             const namesByCol: Record<string, string[]> = {
-              almoco: g.almoco,
-              jantar: g.jantar,
-              folga:  g.folga,
+              almoco: g.almoco, jantar: g.jantar, folga: g.folga,
             };
             const maxN = Math.max(g.almoco.length, g.jantar.length, g.folga.length, 1);
 
@@ -148,7 +144,7 @@ export async function generateEscalaImage(
                 key={d}
                 style={{
                   display: "flex", flexDirection: "column",
-                  background: "white", borderRadius: 10,
+                  background: "white", borderRadius: 14,
                   overflow: "hidden",
                   border: "1.5px solid #E2E8F0",
                   width: CARD_W,
@@ -161,18 +157,13 @@ export async function generateEscalaImage(
                     display: "flex", alignItems: "center",
                     height: HDR_H,
                     background: DAY_COLOR[di],
-                    padding: "0 18px", gap: 10,
+                    padding: "0 24px", gap: 12,
                   }}
                 >
-                  <span style={{ fontSize: 16, fontWeight: 700, color: "white", letterSpacing: 0.3 }}>
+                  <span style={{ fontSize: 20, fontWeight: 700, color: "white", letterSpacing: 0.4 }}>
                     {DOW[di]}
                   </span>
-                  <span
-                    style={{
-                      fontSize: 14, color: "rgba(255,255,255,0.75)",
-                      fontWeight: 500,
-                    }}
-                  >
+                  <span style={{ fontSize: 17, color: "rgba(255,255,255,0.78)", fontWeight: 500 }}>
                     {fmtShort(d)}
                   </span>
                 </div>
@@ -194,31 +185,25 @@ export async function generateEscalaImage(
                           display: "flex", flexDirection: "column",
                           width: COL_W,
                           padding: `0 ${BODY_PAD}px`,
-                          borderLeft: ci > 0 ? "1px solid #F1F5F9" : "none",
-                          gap: 0,
+                          borderLeft: ci > 0 ? "1.5px solid #F1F5F9" : "none",
                         }}
                       >
                         {/* Shift label */}
                         <span
                           style={{
-                            fontSize: 12, fontWeight: 700,
+                            fontSize: 14, fontWeight: 700,
                             color: col.lColor,
                             height: LABEL_H,
-                            marginBottom: 5,
+                            marginBottom: 6,
                           }}
                         >
                           {col.label}
                         </span>
 
                         {/* Name chips */}
-                        <div
-                          style={{
-                            display: "flex", flexDirection: "column",
-                            gap: CHIP_GAP,
-                          }}
-                        >
+                        <div style={{ display: "flex", flexDirection: "column", gap: CHIP_GAP }}>
                           {names.length === 0 ? (
-                            <span style={{ fontSize: 12, color: "#CBD5E1", height: CHIP_H, display: "flex", alignItems: "center" }}>
+                            <span style={{ fontSize: 14, color: "#CBD5E1", height: CHIP_H, display: "flex", alignItems: "center" }}>
                               —
                             </span>
                           ) : (
@@ -230,18 +215,17 @@ export async function generateEscalaImage(
                                   height: CHIP_H,
                                   background: col.chipBg,
                                   border: `1.5px solid ${col.chipBdr}`,
-                                  borderRadius: 7,
-                                  padding: "0 10px",
+                                  borderRadius: 9,
+                                  padding: "0 14px",
                                   alignSelf: "flex-start",
                                 }}
                               >
-                                <span style={{ fontSize: 13, fontWeight: 700, color: col.chipTxt }}>
+                                <span style={{ fontSize: 15, fontWeight: 700, color: col.chipTxt }}>
                                   {name}
                                 </span>
                               </div>
                             ))
                           )}
-                          {/* Invisible spacer to keep consistent row height */}
                           {names.length < maxN && names.length > 0 && (
                             <div style={{ display: "flex", height: (maxN - names.length) * (CHIP_H + CHIP_GAP) }} />
                           )}
@@ -259,7 +243,7 @@ export async function generateEscalaImage(
         <div
           style={{
             display: "flex", justifyContent: "flex-end",
-            marginTop: 10, fontSize: 10, color: "#94A3B8",
+            marginTop: 14, fontSize: 13, color: "#94A3B8",
           }}
         >
           ERP Restaurantes — RH
