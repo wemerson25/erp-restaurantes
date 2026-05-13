@@ -47,18 +47,21 @@ const TIPO_DEMISSAO_OPTIONS = [
   { value: "SEM_JUSTA_CAUSA", label: "Sem Justa Causa" },
   { value: "JUSTA_CAUSA",     label: "Justa Causa" },
   { value: "ACORDO",          label: "Acordo" },
+  { value: "PEDIU_DEMISSAO",  label: "Pediu Demissão" },
 ];
 
 const tipoLabel: Record<string, string> = {
   SEM_JUSTA_CAUSA: "Sem Justa Causa",
   JUSTA_CAUSA:     "Justa Causa",
   ACORDO:          "Acordo",
+  PEDIU_DEMISSAO:  "Pediu Demissão",
 };
 
 const tipoVariant: Record<string, string> = {
   SEM_JUSTA_CAUSA: "warning",
   JUSTA_CAUSA:     "destructive",
   ACORDO:          "secondary",
+  PEDIU_DEMISSAO:  "default",
 };
 
 function todayISO() {

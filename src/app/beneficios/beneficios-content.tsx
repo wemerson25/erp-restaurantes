@@ -273,8 +273,8 @@ export function BeneficiosContent() {
             <Gift size={20} className="text-purple-600" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Folgas de Aniversário</h1>
-            <p className="text-xs sm:text-sm text-gray-500">2 folgas por ano completo · seg–qui, sem feriados</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Folgas Benefício Anual</h1>
+            <p className="text-xs sm:text-sm text-gray-500">2 folgas por ano completo de empresa · seg–qui, sem feriados</p>
           </div>
         </div>
 
@@ -377,7 +377,7 @@ export function BeneficiosContent() {
                           {b.folgaAtual ? (
                             <>
                               <span>Até {fmtDate(b.folgaAtual.dataValidade)}</span>
-                              <p className="text-gray-400">Ano {b.folgaAtual.anoReferencia}º</p>
+                              <p className="text-gray-400">{b.folgaAtual.anoReferencia}º ano de empresa</p>
                             </>
                           ) : "—"}
                         </td>

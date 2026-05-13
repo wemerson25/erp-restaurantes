@@ -15,97 +15,107 @@ export async function POST(req: NextRequest) {
   try {
     await ensureBeneficioExtraTable();
 
-    const { tipo, funcionarioId, folgaExtraId } = await req.json() as {
+    const { tipo, funcionarioId: rawFuncId, folgaExtraId } = await req.json() as {
       tipo: "ANIVERSARIO" | "EXTRA";
       funcionarioId?: string;
       folgaExtraId?: string;
     };
 
-    // ── Folga Aniversário ────────────────────────────────────────────
+    // Resolve funcionarioId from either trigger
+    let funcionarioId: string;
+
     if (tipo === "ANIVERSARIO") {
-      if (!funcionarioId) return NextResponse.json({ error: "funcionarioId obrigatório" }, { status: 400 });
-
-      const func = await prisma.funcionario.findUnique({
-        where: { id: funcionarioId },
-        select: { nome: true, telefone: true, restaurante: { select: { nome: true } } },
-      });
-      if (!func) return NextResponse.json({ error: "Funcionário não encontrado" }, { status: 404 });
-      if (!func.telefone) return NextResponse.json({ error: "Funcionário sem telefone cadastrado" }, { status: 400 });
-
-      const today = new Date(); today.setUTCHours(0, 0, 0, 0);
-      const folga = await prisma.folgaAniversario.findFirst({
-        where: { funcionarioId, dataValidade: { gte: today } },
-        orderBy: { dataValidade: "asc" },
-      });
-
-      if (!folga) {
-        return NextResponse.json({ error: "Nenhuma folga de aniversário ativa para este colaborador" }, { status: 400 });
-      }
-
-      const disponivel = 2 - folga.folgasUsadas;
-      const linhas: string[] = [
-        `Olá, *${func.nome}*! 🎂\n`,
-        `*Folga de Aniversário — ${folga.anoReferencia}º ano:*\n`,
-      ];
-
-      if (disponivel > 0) {
-        linhas.push(`✅ *${disponivel} folga${disponivel === 1 ? "" : "s"} disponível${disponivel === 1 ? "" : "s"}*`);
-        linhas.push(`📅 Válido até *${fmtDate(folga.dataValidade)}*`);
-        linhas.push(`\n⚠️ Agende com o RH para não perder o benefício!`);
-        linhas.push(`_Permitido: segunda a quinta, sem feriados ou vésperas._`);
-      } else {
-        linhas.push(`✅ Benefício já utilizado.`);
-        linhas.push(`📅 Válido até *${fmtDate(folga.dataValidade)}*`);
-      }
-
-      linhas.push(`\n_${func.restaurante.nome} — RH_`);
-
-      const r = await sendWhatsAppText(func.telefone, linhas.join("\n"));
-      if (!r.ok) return NextResponse.json({ error: r.error }, { status: 500 });
-      return NextResponse.json({ ok: true });
-    }
-
-    // ── Folga Benefício Extra ────────────────────────────────────────
-    if (tipo === "EXTRA") {
+      if (!rawFuncId) return NextResponse.json({ error: "funcionarioId obrigatório" }, { status: 400 });
+      funcionarioId = rawFuncId;
+    } else if (tipo === "EXTRA") {
       if (!folgaExtraId) return NextResponse.json({ error: "folgaExtraId obrigatório" }, { status: 400 });
-
-      const folga = await prisma.folgaBeneficioExtra.findUnique({
+      const ref = await prisma.folgaBeneficioExtra.findUnique({
         where: { id: folgaExtraId },
-        include: { funcionario: { select: { nome: true, telefone: true, restaurante: { select: { nome: true } } } } },
+        select: { funcionarioId: true },
       });
-      if (!folga) return NextResponse.json({ error: "Folga não encontrada" }, { status: 404 });
-      if (!folga.funcionario.telefone) return NextResponse.json({ error: "Funcionário sem telefone cadastrado" }, { status: 400 });
-
-      const linhas: string[] = [
-        `Olá, *${folga.funcionario.nome}*! 🎁\n`,
-        `*Folga Benefício: ${folga.motivo}*\n`,
-      ];
-
-      if (folga.status === "DISPONIVEL") {
-        linhas.push(`✅ *Disponível para uso*`);
-        if (folga.dataValidade) {
-          linhas.push(`📅 Válido até *${fmtDate(folga.dataValidade)}*`);
-          linhas.push(`\n⚠️ Agende com o RH para não perder o benefício!`);
-        } else {
-          linhas.push(`\nAgende com o RH para utilizar.`);
-        }
-      } else {
-        linhas.push(`✅ Benefício já utilizado${folga.dataUso ? ` em *${fmtDate(folga.dataUso)}*` : ""}.`);
-      }
-
-      if (folga.observacoes) {
-        linhas.push(`\n_${folga.observacoes}_`);
-      }
-
-      linhas.push(`\n_${folga.funcionario.restaurante.nome} — RH_`);
-
-      const r = await sendWhatsAppText(folga.funcionario.telefone, linhas.join("\n"));
-      if (!r.ok) return NextResponse.json({ error: r.error }, { status: 500 });
-      return NextResponse.json({ ok: true });
+      if (!ref) return NextResponse.json({ error: "Folga não encontrada" }, { status: 404 });
+      funcionarioId = ref.funcionarioId;
+    } else {
+      return NextResponse.json({ error: "tipo inválido" }, { status: 400 });
     }
 
-    return NextResponse.json({ error: "tipo inválido" }, { status: 400 });
+    const func = await prisma.funcionario.findUnique({
+      where: { id: funcionarioId },
+      select: { nome: true, telefone: true, restaurante: { select: { nome: true } } },
+    });
+    if (!func) return NextResponse.json({ error: "Funcionário não encontrado" }, { status: 404 });
+    if (!func.telefone) return NextResponse.json({ error: "Funcionário sem telefone cadastrado" }, { status: 400 });
+
+    // Fetch ALL folgas for this employee
+    const now = new Date(); now.setUTCHours(0, 0, 0, 0);
+
+    const [folgasAnuais, folgasExtra] = await Promise.all([
+      prisma.folgaAniversario.findMany({
+        where: { funcionarioId },
+        orderBy: { anoReferencia: "asc" },
+      }),
+      prisma.folgaBeneficioExtra.findMany({
+        where: { funcionarioId },
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
+
+    // Build unified message with all folgas
+    const linhas: string[] = [
+      `Olá, *${func.nome}*! 📋\n`,
+      `*Suas Folgas Benefício:*\n`,
+    ];
+
+    for (const fa of folgasAnuais) {
+      const disponivel = 2 - fa.folgasUsadas;
+      const valida = new Date(fa.dataValidade) >= now;
+      linhas.push(`📌 *Folga Benefício Anual — ${fa.anoReferencia}º ano de empresa*`);
+      if (valida) {
+        linhas.push(disponivel > 0
+          ? `   ✅ *${disponivel} folga${disponivel > 1 ? "s" : ""} disponível${disponivel > 1 ? "s" : ""}*`
+          : `   ✅ Já utilizado`);
+        linhas.push(`   📅 Válido até *${fmtDate(fa.dataValidade)}*`);
+      } else {
+        linhas.push(`   ⚠️ Expirado em ${fmtDate(fa.dataValidade)}`);
+      }
+      linhas.push("");
+    }
+
+    for (const fe of folgasExtra) {
+      linhas.push(`📌 *${fe.motivo}*`);
+      if (fe.status === "DISPONIVEL") {
+        linhas.push(`   ✅ *Disponível para uso*`);
+        if (fe.dataValidade) linhas.push(`   📅 Válido até *${fmtDate(fe.dataValidade)}*`);
+      } else {
+        linhas.push(`   ✅ Utilizado${fe.dataUso ? ` em *${fmtDate(fe.dataUso)}*` : ""}`);
+      }
+      if (fe.observacoes) linhas.push(`   _${fe.observacoes}_`);
+      linhas.push("");
+    }
+
+    if (folgasAnuais.length === 0 && folgasExtra.length === 0) {
+      linhas.push(`Nenhuma folga benefício registrada no momento.\n`);
+    }
+
+    const temDisponivel =
+      folgasAnuais.some(fa => fa.folgasUsadas < 2 && new Date(fa.dataValidade) >= now) ||
+      folgasExtra.some(fe => fe.status === "DISPONIVEL");
+
+    if (temDisponivel) {
+      linhas.push(`⚠️ Agende com o RH para não perder os benefícios!`);
+      linhas.push(`_Permitido: segunda a quinta, sem feriados ou vésperas._\n`);
+    }
+
+    linhas.push(`_${func.restaurante.nome} — RH_`);
+
+    const r = await sendWhatsAppText(func.telefone, linhas.join("\n"));
+    if (!r.ok) return NextResponse.json({ error: r.error }, { status: 500 });
+    return NextResponse.json({ ok: true });
+
   } catch (e) {
-    return NextResponse.json({ error: "Erro ao enviar", detail: e instanceof Error ? e.message : String(e) }, { status: 500 });
+    return NextResponse.json({
+      error: "Erro ao enviar",
+      detail: e instanceof Error ? e.message : String(e),
+    }, { status: 500 });
   }
 }
