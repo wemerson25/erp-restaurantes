@@ -1,7 +1,15 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { Users, Umbrella, TrendingUp, TrendingDown, Cake, AlarmClock, XCircle, FileText, ShieldAlert, Loader2 } from "lucide-react";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, PieChart, Pie, Cell,
+  LineChart, Line, Legend,
+} from "recharts";
+import {
+  Users, Umbrella, TrendingUp, TrendingDown, Cake,
+  AlarmClock, XCircle, FileText, ShieldAlert, Loader2,
+  AlertTriangle, Clock, Activity, BarChart2,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const COLORS = ["#C41E2E", "#1A1A1A", "#E8293B", "#4B4B4B", "#9B1623", "#6B6B6B"];
@@ -35,6 +43,502 @@ interface RankingFilter {
 interface Aniversariante {
   id: string; nome: string; dia: number; mes: number;
   cargo: string; restaurante: string; isToday: boolean;
+}
+
+interface AdvancedData {
+  emExperiencia: { id: string; nome: string; restaurante: string; cargo: string; dataAdmissao: string; diasNaEmpresa: number; diasRestantes: number; alerta: "vencendo" | "normal" }[];
+  feriasVencendo: { id: string; nome: string; restaurante: string; diasAteVencer: number; periodoFim: string; prioridade: "alta" | "media" }[];
+  feriasVencidas: { id: string; nome: string; restaurante: string; diasVencidas: number }[];
+  horasExtrasMesAnterior: { id: string; nome: string; matricula: string; restaurante: string; cargo: string; totalHoras: number }[];
+  mesAntLabel: string;
+  heatmap: {
+    porDia: { dia: number; nome: string; count: number }[];
+    total: number;
+    porLoja: { nome: string; count: number }[];
+  };
+  scoresDisciplinares: { id: string; nome: string; matricula: string; restaurante: string; cargo: string; score: number; nivel: "atencao" | "critico"; atrasos: number; faltas: number; advertencias: number; atestados: number }[];
+  comparativoLojas: { restaurante: string; totalAtivos: number; atrasos: number; faltas: number; advertencias: number; admissoes: number; demissoes: number; turnoverPct: number }[];
+}
+
+// ─── SkeletonCard ─────────────────────────────────────────────────────────────
+
+function SkeletonCard() {
+  return (
+    <div className="h-32 animate-pulse bg-gray-100 rounded-xl" />
+  );
+}
+
+// ─── AlertasRH ────────────────────────────────────────────────────────────────
+
+function AlertasRH({ data }: { data: AdvancedData }) {
+  const vencidas = data.feriasVencidas;
+  const vencendoAlta = data.feriasVencendo.filter((f) => f.prioridade === "alta");
+  const vencendoMedia = data.feriasVencendo.filter((f) => f.prioridade === "media");
+  const expVencendo = data.emExperiencia.filter((e) => e.alerta === "vencendo");
+
+  const hasAny = vencidas.length > 0 || vencendoAlta.length > 0 || vencendoMedia.length > 0 || expVencendo.length > 0;
+  if (!hasAny) return null;
+
+  return (
+    <Card className="border-orange-200 bg-orange-50">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-orange-800 text-base">
+          <AlertTriangle size={18} className="text-orange-600" />
+          Pendências RH
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0 space-y-4">
+        {vencidas.length > 0 && (
+          <div>
+            <span className="inline-block bg-red-100 text-red-700 text-xs font-semibold px-2 py-0.5 rounded-full mb-2">
+              Férias Vencidas ({vencidas.length})
+            </span>
+            <ul className="space-y-1">
+              {vencidas.slice(0, 6).map((f) => (
+                <li key={f.id} className="flex items-center justify-between text-xs text-red-800">
+                  <span className="font-medium truncate max-w-[60%]">{f.nome}</span>
+                  <span className="text-red-600 shrink-0">{f.diasVencidas} dias vencida · {f.restaurante}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {vencendoAlta.length > 0 && (
+          <div>
+            <span className="inline-block bg-orange-200 text-orange-800 text-xs font-semibold px-2 py-0.5 rounded-full mb-2">
+              Férias Vencendo (Alta Prioridade — {vencendoAlta.length})
+            </span>
+            <ul className="space-y-1">
+              {vencendoAlta.slice(0, 6).map((f) => (
+                <li key={f.id} className="flex items-center justify-between text-xs text-orange-800">
+                  <span className="font-medium truncate max-w-[60%]">{f.nome}</span>
+                  <span className="text-orange-600 shrink-0">{f.diasAteVencer} dias para vencer · {f.restaurante}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {vencendoMedia.length > 0 && (
+          <div>
+            <span className="inline-block bg-yellow-100 text-yellow-800 text-xs font-semibold px-2 py-0.5 rounded-full mb-2">
+              Férias Vencendo (Média Prioridade — {vencendoMedia.length})
+            </span>
+            <ul className="space-y-1">
+              {vencendoMedia.slice(0, 6).map((f) => (
+                <li key={f.id} className="flex items-center justify-between text-xs text-yellow-800">
+                  <span className="font-medium truncate max-w-[60%]">{f.nome}</span>
+                  <span className="text-yellow-700 shrink-0">{f.diasAteVencer} dias para vencer · {f.restaurante}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {expVencendo.length > 0 && (
+          <div>
+            <span className="inline-block bg-orange-100 text-orange-700 text-xs font-semibold px-2 py-0.5 rounded-full mb-2">
+              Experiência Vencendo ({expVencendo.length})
+            </span>
+            <ul className="space-y-1">
+              {expVencendo.slice(0, 6).map((f) => (
+                <li key={f.id} className="flex items-center justify-between text-xs text-orange-800">
+                  <span className="font-medium truncate max-w-[60%]">{f.nome}</span>
+                  <span className="text-orange-600 shrink-0">{f.diasRestantes} dias restantes de experiência · {f.restaurante}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── ExperienciaCard ──────────────────────────────────────────────────────────
+
+const TIPO_DEMISSAO_OPTIONS = [
+  { value: "SEM_JUSTA_CAUSA", label: "Sem Justa Causa" },
+  { value: "JUSTA_CAUSA",     label: "Justa Causa" },
+  { value: "ACORDO",          label: "Acordo" },
+  { value: "PEDIU_DEMISSAO",  label: "Pediu Demissão" },
+];
+
+function ExperienciaCard({ data }: { data: AdvancedData }) {
+  const [items, setItems] = useState(data.emExperiencia);
+  const [demitindoId, setDemitindoId] = useState<string | null>(null);
+  const [form, setForm] = useState({ dataDemissao: "", tipoDemissao: "" });
+  const [saving, setSaving] = useState(false);
+
+  async function confirmarDemissao(id: string) {
+    if (!form.dataDemissao || !form.tipoDemissao) return;
+    setSaving(true);
+    try {
+      await fetch(`/api/funcionarios/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "DEMITIDO", dataDemissao: form.dataDemissao, tipoDemissao: form.tipoDemissao }),
+      });
+      setItems(prev => prev.filter(f => f.id !== id));
+      setDemitindoId(null);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center justify-between text-base">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+              <Clock size={16} className="text-blue-600" />
+            </div>
+            Em Experiência
+          </div>
+          <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded-full">
+            {items.length}
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {items.length === 0 ? (
+          <p className="text-sm text-gray-400 italic py-4 text-center">Nenhum colaborador em período de experiência</p>
+        ) : (
+          <ul className="space-y-3 max-h-96 overflow-y-auto pr-1">
+            {items.map((f) => {
+              const pct = Math.round((f.diasNaEmpresa / 90) * 100);
+              const badgeColor =
+                f.diasRestantes <= 15 ? "bg-red-100 text-red-700" :
+                f.diasRestantes <= 30 ? "bg-yellow-100 text-yellow-700" :
+                "bg-green-100 text-green-700";
+              const isOpen = demitindoId === f.id;
+              return (
+                <li key={f.id} className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{f.nome}</p>
+                      <p className="text-xs text-gray-400 truncate">{f.restaurante} · {f.cargo}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeColor}`}>
+                        {f.diasRestantes}d
+                      </span>
+                      <button
+                        onClick={() => {
+                          setDemitindoId(isOpen ? null : f.id);
+                          setForm({ dataDemissao: "", tipoDemissao: "" });
+                        }}
+                        className="text-[11px] font-semibold px-2 py-0.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        {isOpen ? "Cancelar" : "Demitir"}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        f.diasRestantes <= 15 ? "bg-red-500" :
+                        f.diasRestantes <= 30 ? "bg-yellow-400" : "bg-blue-500"
+                      }`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  {isOpen && (
+                    <div className="bg-red-50 border border-red-100 rounded-xl p-3 space-y-2">
+                      <p className="text-xs font-semibold text-red-700">Registrar demissão — {f.nome}</p>
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <label className="text-[10px] text-gray-500 mb-1 block">Data de demissão</label>
+                          <input
+                            type="date"
+                            value={form.dataDemissao}
+                            onChange={e => setForm(p => ({ ...p, dataDemissao: e.target.value }))}
+                            className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-red-400"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <label className="text-[10px] text-gray-500 mb-1 block">Tipo</label>
+                          <select
+                            value={form.tipoDemissao}
+                            onChange={e => setForm(p => ({ ...p, tipoDemissao: e.target.value }))}
+                            className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-red-400"
+                          >
+                            <option value="">Selecione</option>
+                            {TIPO_DEMISSAO_OPTIONS.map(o => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => confirmarDemissao(f.id)}
+                        disabled={!form.dataDemissao || !form.tipoDemissao || saving}
+                        className="w-full text-xs font-semibold bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white rounded-lg py-1.5 transition-colors flex items-center justify-center gap-1"
+                      >
+                        {saving ? <Loader2 size={12} className="animate-spin" /> : null}
+                        Confirmar Demissão
+                      </button>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── HorasExtrasCard ──────────────────────────────────────────────────────────
+
+function HorasExtrasCard({ data }: { data: AdvancedData }) {
+  const items = data.horasExtrasMesAnterior;
+  const maxHoras = items.length > 0 ? items[0].totalHoras : 1;
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+            <AlarmClock size={16} className="text-orange-600" />
+          </div>
+          Mais Horas Extras
+          <span className="text-xs font-normal text-gray-400 ml-1">({data.mesAntLabel})</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {items.length === 0 ? (
+          <p className="text-sm text-gray-400 italic py-4 text-center">Nenhum registro de horas extras no mês anterior</p>
+        ) : (
+          <ol className="space-y-2.5">
+            {items.map((f, i) => (
+              <li key={f.id} className="flex items-center gap-3">
+                <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 ${
+                  i === 0 ? "bg-red-600 text-white" : i === 1 ? "bg-orange-500 text-white" : i === 2 ? "bg-amber-400 text-white" : "bg-gray-200 text-gray-600"
+                }`}>{i + 1}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <p className="text-xs font-semibold text-gray-900 truncate max-w-[65%]">{f.nome}</p>
+                    <span className={`text-xs font-bold shrink-0 ${i === 0 ? "text-red-600" : "text-gray-600"}`}>{f.totalHoras}h</span>
+                  </div>
+                  <p className="text-[10px] text-gray-400 truncate">{f.restaurante} · {f.cargo}</p>
+                  <div className="mt-1 h-1 rounded-full bg-gray-100 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${i === 0 ? "bg-red-500" : "bg-orange-300"}`}
+                      style={{ width: `${Math.round((f.totalHoras / maxHoras) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── ScoreCard ────────────────────────────────────────────────────────────────
+
+function ScoreCard({ data }: { data: AdvancedData }) {
+  const items = data.scoresDisciplinares;
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+            <ShieldAlert size={16} className="text-red-600" />
+          </div>
+          Colaboradores em Atenção
+          <span className="text-xs font-normal text-gray-400 ml-1">(mês atual + anterior)</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {items.length === 0 ? (
+          <p className="text-sm text-gray-400 italic py-4 text-center">
+            Nenhum colaborador com ocorrências no período
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="text-left py-2 pr-3 text-gray-500 font-medium">Colaborador</th>
+                  <th className="text-left py-2 pr-3 text-gray-500 font-medium">Nível</th>
+                  <th className="text-center py-2 px-1 text-gray-500 font-medium">Atr.</th>
+                  <th className="text-center py-2 px-1 text-gray-500 font-medium">Falt.</th>
+                  <th className="text-center py-2 px-1 text-gray-500 font-medium">Adv.</th>
+                  <th className="text-center py-2 px-1 text-gray-500 font-medium">Ates.</th>
+                  <th className="text-center py-2 pl-1 text-gray-500 font-medium">Score</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {items.map((s) => (
+                  <tr key={s.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="py-2 pr-3">
+                      <p className="font-semibold text-gray-900 truncate max-w-[160px]">{s.nome}</p>
+                      <p className="text-gray-400 truncate max-w-[160px]">{s.restaurante}</p>
+                    </td>
+                    <td className="py-2 pr-3">
+                      {s.nivel === "critico" ? (
+                        <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-semibold whitespace-nowrap">
+                          🔴 Crítico
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-semibold whitespace-nowrap">
+                          🟡 Atenção
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-2 px-1 text-center">
+                      <span className={`font-bold ${s.atrasos > 0 ? "text-orange-500" : "text-gray-300"}`}>{s.atrasos}</span>
+                    </td>
+                    <td className="py-2 px-1 text-center">
+                      <span className={`font-bold ${s.faltas > 0 ? "text-red-500" : "text-gray-300"}`}>{s.faltas}</span>
+                    </td>
+                    <td className="py-2 px-1 text-center">
+                      <span className={`font-bold ${s.advertencias > 0 ? "text-gray-700" : "text-gray-300"}`}>{s.advertencias}</span>
+                    </td>
+                    <td className="py-2 px-1 text-center">
+                      <span className={`font-bold ${s.atestados > 0 ? "text-blue-500" : "text-gray-300"}`}>{s.atestados}</span>
+                    </td>
+                    <td className="py-2 pl-1 text-center">
+                      <span className={`font-bold text-sm ${s.nivel === "critico" ? "text-red-600" : "text-yellow-600"}`}>
+                        {s.score}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── HeatmapAtrasos ───────────────────────────────────────────────────────────
+
+function HeatmapAtrasos({ data }: { data: AdvancedData }) {
+  if (!data.heatmap.total) return null;
+  const { porDia, total, porLoja } = data.heatmap;
+  const maxCount = Math.max(...porDia.map((d) => d.count), 1);
+
+  function cellBg(count: number) {
+    if (count === 0) return "bg-gray-50 text-gray-300";
+    const ratio = count / maxCount;
+    if (ratio < 0.25) return "bg-red-100 text-red-700";
+    if (ratio < 0.6) return "bg-red-300 text-red-900";
+    return "bg-red-600 text-white";
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+            <Activity size={16} className="text-red-600" />
+          </div>
+          Atrasos por Dia da Semana
+          <span className="text-xs font-normal text-gray-400 ml-1">(90 dias · {total} total)</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0 space-y-4">
+        <div className="flex gap-2">
+          {porDia.map((d) => (
+            <div
+              key={d.dia}
+              className={`flex-1 rounded-xl p-2 text-center transition-colors ${cellBg(d.count)}`}
+            >
+              <p className="text-xs font-medium opacity-70 mb-1">{d.nome}</p>
+              <p className="text-lg font-bold leading-none">{d.count}</p>
+            </div>
+          ))}
+        </div>
+        {porLoja.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Por Loja</p>
+            <div className="flex flex-wrap gap-2">
+              {porLoja.slice(0, 8).map((l) => (
+                <span key={l.nome} className="bg-red-50 text-red-700 text-xs font-medium px-2.5 py-1 rounded-full border border-red-100">
+                  {l.nome}: {l.count}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── ComparativoLojas ─────────────────────────────────────────────────────────
+
+function ComparativoLojas({ data }: { data: AdvancedData }) {
+  const rows = data.comparativoLojas;
+  if (rows.length === 0) return null;
+
+  // Find max values per column for highlighting
+  const maxAtivos   = Math.max(...rows.map((r) => r.totalAtivos));
+  const maxAtrasos  = Math.max(...rows.map((r) => r.atrasos));
+  const maxFaltas   = Math.max(...rows.map((r) => r.faltas));
+  const maxAdv      = Math.max(...rows.map((r) => r.advertencias));
+  const maxAdm      = Math.max(...rows.map((r) => r.admissoes));
+  const maxDem      = Math.max(...rows.map((r) => r.demissoes));
+  const maxTurnover = Math.max(...rows.map((r) => r.turnoverPct));
+
+  function cellClass(val: number, max: number) {
+    return val === max && max > 0 ? "text-red-600 font-bold" : "text-gray-700";
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+            <BarChart2 size={16} className="text-gray-600" />
+          </div>
+          Comparativo entre Lojas
+          <span className="text-xs font-normal text-gray-400 ml-1">(30 dias)</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-gray-100">
+                <th className="text-left py-2 pr-3 text-gray-500 font-medium">Loja</th>
+                <th className="text-center py-2 px-2 text-gray-500 font-medium">Ativos</th>
+                <th className="text-center py-2 px-2 text-gray-500 font-medium">Atrasos</th>
+                <th className="text-center py-2 px-2 text-gray-500 font-medium">Faltas</th>
+                <th className="text-center py-2 px-2 text-gray-500 font-medium">Adv.</th>
+                <th className="text-center py-2 px-2 text-gray-500 font-medium">Adm.</th>
+                <th className="text-center py-2 px-2 text-gray-500 font-medium">Dem.</th>
+                <th className="text-center py-2 pl-2 text-gray-500 font-medium">Turnover%</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {rows.map((r) => (
+                <tr key={r.restaurante} className="hover:bg-gray-50 transition-colors">
+                  <td className="py-2 pr-3 font-medium text-gray-800 truncate max-w-[140px]">{r.restaurante}</td>
+                  <td className={`py-2 px-2 text-center ${cellClass(r.totalAtivos, maxAtivos)}`}>{r.totalAtivos}</td>
+                  <td className={`py-2 px-2 text-center ${cellClass(r.atrasos, maxAtrasos)}`}>{r.atrasos}</td>
+                  <td className={`py-2 px-2 text-center ${cellClass(r.faltas, maxFaltas)}`}>{r.faltas}</td>
+                  <td className={`py-2 px-2 text-center ${cellClass(r.advertencias, maxAdv)}`}>{r.advertencias}</td>
+                  <td className={`py-2 px-2 text-center ${cellClass(r.admissoes, maxAdm)}`}>{r.admissoes}</td>
+                  <td className={`py-2 px-2 text-center ${cellClass(r.demissoes, maxDem)}`}>{r.demissoes}</td>
+                  <td className={`py-2 pl-2 text-center ${cellClass(r.turnoverPct, maxTurnover)}`}>{r.turnoverPct}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 // ─── StatCard ─────────────────────────────────────────────────────────────────
@@ -221,6 +725,7 @@ export function DashboardContent() {
     period: "month",
     month: defaultLastMonth(),
   });
+  const [advanced, setAdvanced] = useState<AdvancedData | null>(null);
 
   useEffect(() => {
     fetch("/api/dashboard")
@@ -228,6 +733,13 @@ export function DashboardContent() {
       .then(setData)
       .catch(console.error)
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/dashboard/advanced")
+      .then((r) => r.json())
+      .then(setAdvanced)
+      .catch(console.error);
   }, []);
 
   const fetchRankings = useCallback((filter: RankingFilter) => {
@@ -290,6 +802,32 @@ export function DashboardContent() {
           trend={data.demissoesMes > 0 ? { value: data.demissoesMes, label: "este mês", positive: false } : undefined}
         />
       </div>
+
+      {/* Alertas RH */}
+      {advanced ? (
+        (advanced.feriasVencidas.length > 0 ||
+          advanced.feriasVencendo.length > 0 ||
+          advanced.emExperiencia.some((e) => e.alerta === "vencendo")) && (
+          <AlertasRH data={advanced} />
+        )
+      ) : (
+        <SkeletonCard />
+      )}
+
+      {/* Experiência + Horas Extras */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {advanced ? <ExperienciaCard data={advanced} /> : <SkeletonCard />}
+        {advanced ? <HorasExtrasCard data={advanced} /> : <SkeletonCard />}
+      </div>
+
+      {/* Score Disciplinar */}
+      {advanced ? <ScoreCard data={advanced} /> : <SkeletonCard />}
+
+      {/* Heatmap */}
+      {advanced?.heatmap.total ? <HeatmapAtrasos data={advanced} /> : null}
+
+      {/* Comparativo Lojas */}
+      {advanced ? <ComparativoLojas data={advanced} /> : <SkeletonCard />}
 
       {/* Ranking */}
       <Card>
