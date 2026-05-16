@@ -50,7 +50,7 @@ export async function sendWhatsAppText(
   if (number.length < 12) return { ok: false, error: `Número inválido: ${to}` };
   return evolutionRequest("message/sendText", {
     number,
-    textMessage: { text: message },
+    text: message,
   });
 }
 
@@ -63,12 +63,10 @@ export async function sendWhatsAppImage(
   if (number.length < 12) return { ok: false, error: `Número inválido: ${to}` };
   return evolutionRequest("message/sendMedia", {
     number,
-    mediaMessage: {
-      mediatype: "image",
-      mimetype:  "image/png",
-      caption:   caption ?? "",
-      media:     imageBuffer.toString("base64"),
-    },
+    mediatype: "image",
+    mimetype:  "image/png",
+    caption:   caption ?? "",
+    media:     imageBuffer.toString("base64"),
   });
 }
 
