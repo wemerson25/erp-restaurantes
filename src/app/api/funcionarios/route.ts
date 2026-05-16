@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { ensureFuncionarioColumns } from "@/lib/funcionario-setup";
+import { dispararEvento } from "@/lib/notificacao-config";
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -53,6 +54,18 @@ export async function POST(req: NextRequest) {
       cargo: { select: { nome: true } },
     },
   });
+
+  const admData = new Date(funcionario.dataAdmissao).toLocaleDateString("pt-BR", { timeZone: "UTC" });
+  const admMsg = [
+    `👋 *Nova Admissão*\n`,
+    `Colaborador: *${funcionario.nome}*`,
+    `Cargo: ${funcionario.cargo.nome}`,
+    `Restaurante: ${funcionario.restaurante.nome}`,
+    `Matrícula: ${funcionario.matricula}`,
+    `Data de admissão: *${admData}*`,
+    `\n_RH — Grupo Ykedin_`,
+  ].join("\n");
+  dispararEvento("ADMISSAO", admMsg).catch(() => {});
 
   return NextResponse.json(funcionario, { status: 201 });
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { dispararEvento } from "@/lib/notificacao-config";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
@@ -44,6 +45,26 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       cargo: { select: { nome: true } },
     },
   });
+
+  if (data.status === "DEMITIDO") {
+    const tipoLabel: Record<string, string> = {
+      SEM_JUSTA_CAUSA: "Sem Justa Causa", JUSTA_CAUSA: "Justa Causa",
+      ACORDO: "Acordo", PEDIU_DEMISSAO: "Pediu Demissão",
+    };
+    const demData = data.dataDemissao
+      ? new Date(data.dataDemissao).toLocaleDateString("pt-BR", { timeZone: "UTC" })
+      : new Date().toLocaleDateString("pt-BR");
+    const demMsg = [
+      `📋 *Demissão Registrada*\n`,
+      `Colaborador: *${funcionario.nome}*`,
+      `Cargo: ${funcionario.cargo.nome}`,
+      `Restaurante: ${funcionario.restaurante.nome}`,
+      `Data: *${demData}*`,
+      data.tipoDemissao ? `Tipo: *${tipoLabel[data.tipoDemissao] ?? data.tipoDemissao}*` : "",
+      `\n_RH — Grupo Ykedin_`,
+    ].filter(Boolean).join("\n");
+    dispararEvento("DEMISSAO", demMsg).catch(() => {});
+  }
 
   return NextResponse.json(funcionario);
 }

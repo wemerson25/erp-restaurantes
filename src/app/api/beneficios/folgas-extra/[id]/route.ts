@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { ensureBeneficioExtraTable } from "@/lib/beneficio-extra-setup";
+import { dispararEvento } from "@/lib/notificacao-config";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
@@ -16,13 +17,27 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!dataUso)
       return NextResponse.json({ error: "dataUso obrigatório" }, { status: 400 });
 
-    await prisma.folgaBeneficioExtra.update({
+    const folga = await prisma.folgaBeneficioExtra.update({
       where: { id },
       data: {
         dataUso: new Date(`${dataUso}T12:00:00Z`),
         status: "UTILIZADA",
       },
+      include: {
+        funcionario: { select: { nome: true, telefone: true, restaurante: { select: { nome: true } } } },
+      },
     });
+
+    const dataFormatada = new Date(`${dataUso}T12:00:00Z`).toLocaleDateString("pt-BR", { timeZone: "UTC" });
+    const msg = [
+      `🎁 *Folga Benefício Registrada*\n`,
+      `Colaborador: *${folga.funcionario.nome}*`,
+      `Restaurante: ${folga.funcionario.restaurante.nome}`,
+      `Folga: *${folga.motivo}*`,
+      `Data de uso: *${dataFormatada}*`,
+      `\n_RH — Grupo Ykedin_`,
+    ].join("\n");
+    dispararEvento("FOLGA_USADA", msg, folga.funcionario.telefone ?? undefined).catch(() => {});
 
     return NextResponse.json({ ok: true });
   } catch (e) {

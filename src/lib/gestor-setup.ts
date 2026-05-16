@@ -32,5 +32,17 @@ export async function ensureGestorTable() {
       );
     }
   }
+  // Migration: ensure Wemerson is present in existing DBs
+  const wExists = await prisma.$queryRawUnsafe<{ c: number }[]>(
+    `SELECT COUNT(*) as c FROM "Gestor" WHERE nome='Wemerson'`,
+  );
+  if (Number(wExists[0].c) === 0) {
+    const { randomUUID } = await import("crypto");
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO "Gestor" ("id","nome","telefone") VALUES (?,?,?)`,
+      randomUUID(), "Wemerson", "74988198586",
+    );
+  }
+
   tableReady = true;
 }

@@ -36,11 +36,17 @@ export async function GET() {
     const em30dias = new Date(today); em30dias.setUTCDate(em30dias.getUTCDate() + 30);
     const em60dias = new Date(today); em60dias.setUTCDate(em60dias.getUTCDate() + 60);
 
-    const [funcionarios, feriasProximas, todasFerias, folgasAniv, folgasExtra] = await Promise.all([
+    const monthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+    const em7diasAtras = new Date(today); em7diasAtras.setUTCDate(em7diasAtras.getUTCDate() - 7);
+
+    const [
+      funcionarios, feriasProximas, todasFerias, folgasAniv, folgasExtra,
+      admissoesRecentes, demissoesRecentes, semTelefone, advertenciasRecentes,
+    ] = await Promise.all([
       prisma.funcionario.findMany({
         where: { status: "ATIVO" },
         select: {
-          id: true, nome: true, dataNascimento: true, dataAdmissao: true,
+          id: true, nome: true, dataNascimento: true, dataAdmissao: true, telefone: true,
           restaurante: { select: { nome: true } },
         },
       }),
@@ -60,6 +66,26 @@ export async function GET() {
       prisma.folgaBeneficioExtra.findMany({
         where: { status: "DISPONIVEL", dataValidade: { gte: today, lte: em30dias } },
         include: { funcionario: { select: { nome: true } } },
+      }),
+      prisma.funcionario.findMany({
+        where: { dataAdmissao: { gte: monthStart } },
+        select: { nome: true, cargo: { select: { nome: true } }, restaurante: { select: { nome: true } }, dataAdmissao: true },
+        orderBy: { dataAdmissao: "desc" },
+      }),
+      prisma.funcionario.findMany({
+        where: { status: "DEMITIDO", dataDemissao: { gte: monthStart } },
+        select: { nome: true, cargo: { select: { nome: true } }, restaurante: { select: { nome: true } }, dataDemissao: true },
+        orderBy: { dataDemissao: "desc" },
+      }),
+      prisma.funcionario.findMany({
+        where: { status: "ATIVO", OR: [{ telefone: "" }] },
+        select: { nome: true, restaurante: { select: { nome: true } } },
+      }),
+      prisma.advertencia.findMany({
+        where: { data: { gte: em7diasAtras } },
+        include: { funcionario: { select: { nome: true, restaurante: { select: { nome: true } } } } },
+        orderBy: { data: "desc" },
+        take: 10,
       }),
     ]);
 
@@ -193,6 +219,57 @@ export async function GET() {
           : `${func.nome} completa ${anos} ano${anos === 1 ? "" : "s"} de empresa em ${dias} dia${dias === 1 ? "" : "s"}`,
         prioridade: dias === 0 ? "media" : "baixa",
         funcionarioNome: func.nome,
+      });
+    }
+
+    // ── 7. Admissões este mês ─────────────────────────────────────
+    for (const f of admissoesRecentes) {
+      notificacoes.push({
+        id: `admissao_${idx++}`,
+        tipo: "ADMISSAO_RECENTE",
+        titulo: "Nova admissão este mês",
+        descricao: `${f.nome} foi admitido(a) como ${f.cargo?.nome ?? "—"} em ${f.restaurante?.nome ?? "—"}`,
+        prioridade: "baixa",
+        data: new Date(f.dataAdmissao).toISOString().slice(0, 10),
+        funcionarioNome: f.nome,
+      });
+    }
+
+    // ── 8. Demissões este mês ─────────────────────────────────────
+    for (const f of demissoesRecentes) {
+      notificacoes.push({
+        id: `demissao_${idx++}`,
+        tipo: "DEMISSAO_RECENTE",
+        titulo: "Demissão este mês",
+        descricao: `${f.nome} foi desligado(a) de ${f.restaurante?.nome ?? "—"}${f.dataDemissao ? ` em ${new Date(f.dataDemissao).toLocaleDateString("pt-BR", { timeZone: "UTC" })}` : ""}`,
+        prioridade: "media",
+        data: f.dataDemissao ? new Date(f.dataDemissao).toISOString().slice(0, 10) : undefined,
+        funcionarioNome: f.nome,
+      });
+    }
+
+    // ── 9. Colaboradores sem telefone ─────────────────────────────
+    for (const f of semTelefone) {
+      notificacoes.push({
+        id: `sem_tel_${idx++}`,
+        tipo: "SEM_TELEFONE",
+        titulo: "Cadastro incompleto",
+        descricao: `${f.nome} (${f.restaurante?.nome ?? "—"}) não tem telefone cadastrado`,
+        prioridade: "media",
+        funcionarioNome: f.nome,
+      });
+    }
+
+    // ── 10. Advertências recentes (7 dias) ───────────────────────
+    for (const a of advertenciasRecentes) {
+      notificacoes.push({
+        id: `adv_${a.id}`,
+        tipo: "ADVERTENCIA_RECENTE",
+        titulo: "Advertência registrada",
+        descricao: `${a.funcionario.nome} (${a.funcionario.restaurante?.nome ?? "—"}) — ${a.motivo ?? a.tipo ?? "sem motivo"}`,
+        prioridade: "alta",
+        data: new Date(a.data).toISOString().slice(0, 10),
+        funcionarioNome: a.funcionario.nome,
       });
     }
 

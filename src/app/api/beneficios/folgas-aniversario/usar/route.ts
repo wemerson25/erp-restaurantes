@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { validateFolgaDay } from "@/lib/feriados";
+import { dispararEvento } from "@/lib/notificacao-config";
 
 function addYears(date: Date, years: number) {
   const d = new Date(date);
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
     // Find employee to compute benefit dates
     const funcionario = await prisma.funcionario.findUnique({
       where: { id: funcionarioId },
-      select: { dataAdmissao: true },
+      select: { dataAdmissao: true, nome: true, telefone: true, restaurante: { select: { nome: true } } },
     });
     if (!funcionario)
       return NextResponse.json({ error: "Funcionário não encontrado" }, { status: 404 });
@@ -96,6 +97,17 @@ export async function POST(req: NextRequest) {
             },
           })]),
     ]);
+
+    const dataFormatada = new Date(`${dateStr}T12:00:00Z`).toLocaleDateString("pt-BR", { timeZone: "UTC" });
+    const msg = [
+      `🎁 *Folga Benefício Registrada*\n`,
+      `Colaborador: *${funcionario.nome}*`,
+      `Restaurante: ${funcionario.restaurante.nome}`,
+      `Folga: *Benefício Anual — ${anoReferencia}º ano de empresa*`,
+      `Data de uso: *${dataFormatada}*`,
+      `\n_RH — Grupo Ykedin_`,
+    ].join("\n");
+    dispararEvento("FOLGA_USADA", msg, funcionario.telefone ?? undefined).catch(() => {});
 
     return NextResponse.json({ ok: true });
   } catch (e) {

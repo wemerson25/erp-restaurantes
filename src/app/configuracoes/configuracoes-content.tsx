@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { Plus, Loader2, Trash2, Edit2, Phone, User, Check, X } from "lucide-react";
+import { Plus, Loader2, Trash2, Edit2, Phone, User, Check, X, Bell } from "lucide-react";
 
 interface Gestor {
   id: string;
@@ -8,6 +8,19 @@ interface Gestor {
   telefone: string;
   ativo: boolean;
 }
+
+interface EventConfig {
+  evento: string;
+  ativo: boolean;
+  incluiColaborador: boolean;
+  gestorIds: string[];
+}
+
+const EVENT_LABELS: Record<string, string> = {
+  FOLGA_USADA: "Folga benefício registrada",
+  ADMISSAO: "Nova admissão",
+  DEMISSAO: "Demissão registrada",
+};
 
 function fmtPhone(t: string) {
   const d = t.replace(/\D/g, "");
@@ -26,6 +39,10 @@ export function ConfiguracoesContent() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState("");
 
+  const [configs, setConfigs] = useState<EventConfig[]>([]);
+  const [configGestores, setConfigGestores] = useState<Gestor[]>([]);
+  const [configLoading, setConfigLoading] = useState(true);
+
   const fetchGestores = useCallback(async () => {
     setLoading(true);
     const res = await fetch("/api/gestores");
@@ -33,7 +50,38 @@ export function ConfiguracoesContent() {
     setLoading(false);
   }, []);
 
+  const fetchConfigs = useCallback(async () => {
+    setConfigLoading(true);
+    const res = await fetch("/api/notificacoes/config");
+    if (res.ok) {
+      const d = await res.json() as { configs: EventConfig[]; gestores: Gestor[] };
+      setConfigs(d.configs);
+      setConfigGestores(d.gestores);
+    }
+    setConfigLoading(false);
+  }, []);
+
   useEffect(() => { fetchGestores(); }, [fetchGestores]);
+  useEffect(() => { fetchConfigs(); }, [fetchConfigs]);
+
+  async function patchConfig(patch: { evento: string; ativo?: boolean; incluiColaborador?: boolean; gestorIds?: string[] }) {
+    await fetch("/api/notificacoes/config", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    setConfigs(prev => prev.map(c =>
+      c.evento === patch.evento ? { ...c, ...patch } : c
+    ));
+  }
+
+  function toggleGestor(evento: string, gId: string, currentIds: string[]) {
+    const allIds = configGestores.map(g => g.id);
+    const effective = currentIds.length === 0 ? allIds : currentIds;
+    const next = effective.includes(gId) ? effective.filter(id => id !== gId) : [...effective, gId];
+    const newIds = next.length === allIds.length ? [] : next;
+    patchConfig({ evento, gestorIds: newIds });
+  }
 
   function openAdd() {
     setEditTarget(null);
@@ -220,6 +268,85 @@ export function ConfiguracoesContent() {
       <p className="text-xs text-gray-400 text-center">
         Os gestores ativos aparecem como opção de destinatário no envio de alertas e escalas via WhatsApp.
       </p>
+
+      {/* Notificações Automáticas */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100">
+          <Bell size={16} className="text-red-600" />
+          <div>
+            <h2 className="font-semibold text-gray-900">Notificações Automáticas</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Escolha quem recebe cada tipo de alerta via WhatsApp</p>
+          </div>
+        </div>
+
+        {configLoading ? (
+          <div className="flex items-center justify-center gap-2 py-10 text-gray-400 text-sm">
+            <Loader2 size={15} className="animate-spin" /> Carregando...
+          </div>
+        ) : (
+          <ul className="divide-y divide-gray-50">
+            {configs.map(cfg => {
+              const effectiveIds = cfg.gestorIds.length === 0
+                ? configGestores.map(g => g.id)
+                : cfg.gestorIds;
+              return (
+                <li key={cfg.evento} className="px-5 py-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-gray-900">
+                      {EVENT_LABELS[cfg.evento] ?? cfg.evento}
+                    </p>
+                    <button
+                      onClick={() => patchConfig({ evento: cfg.evento, ativo: !cfg.ativo })}
+                      className={`text-[11px] font-semibold px-2.5 py-1 rounded-full transition-colors ${cfg.ativo ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+                    >
+                      {cfg.ativo ? "Ativo" : "Inativo"}
+                    </button>
+                  </div>
+
+                  {cfg.ativo && (
+                    <>
+                      <div>
+                        <p className="text-[11px] text-gray-400 mb-2 font-medium uppercase tracking-wide">Enviar para</p>
+                        <div className="flex flex-wrap gap-2">
+                          {configGestores.map(g => {
+                            const checked = effectiveIds.includes(g.id);
+                            return (
+                              <button
+                                key={g.id}
+                                onClick={() => toggleGestor(cfg.evento, g.id, cfg.gestorIds)}
+                                className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border transition-colors ${checked ? "bg-red-50 border-red-200 text-red-700" : "bg-gray-50 border-gray-200 text-gray-400 hover:bg-gray-100"}`}
+                              >
+                                <User size={11} />
+                                {g.nome}
+                                {checked && <Check size={11} />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {cfg.gestorIds.length === 0 && (
+                          <p className="text-[11px] text-gray-400 mt-1.5">Todos os gestores ativos recebem</p>
+                        )}
+                      </div>
+
+                      {cfg.evento === "FOLGA_USADA" && (
+                        <div className="flex items-center justify-between pt-1">
+                          <p className="text-xs text-gray-600">Notificar também o colaborador</p>
+                          <button
+                            onClick={() => patchConfig({ evento: cfg.evento, incluiColaborador: !cfg.incluiColaborador })}
+                            className={`text-[11px] font-semibold px-2.5 py-1 rounded-full transition-colors ${cfg.incluiColaborador ? "bg-blue-100 text-blue-700 hover:bg-blue-200" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+                          >
+                            {cfg.incluiColaborador ? "Sim" : "Não"}
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
