@@ -1,8 +1,11 @@
 function formatPhone(raw: string): string {
   const digits = raw.replace(/\D/g, "");
-  if (digits.startsWith("55") && digits.length >= 12) return digits;
-  if (digits.length >= 10 && digits.length <= 11) return `55${digits}`;
-  return digits;
+  let number: string;
+  if (digits.startsWith("55") && digits.length >= 12) number = digits;
+  else if (digits.length >= 10 && digits.length <= 11) number = `55${digits}`;
+  else number = digits;
+  // Evolution API v2 requires the WhatsApp JID format
+  return number.includes("@") ? number : `${number}@s.whatsapp.net`;
 }
 
 async function evolutionRequest(
@@ -32,8 +35,9 @@ async function evolutionRequest(
     try { data = JSON.parse(text); } catch { /* not JSON */ }
 
     if (!res.ok) {
-      const msg = (data.message ?? data.error ?? `HTTP ${res.status}: ${text.slice(0, 200)}`) as string;
-      return { ok: false, error: Array.isArray(msg) ? (msg as string[]).join(", ") : msg };
+      const raw = data.message ?? data.error ?? `HTTP ${res.status}: ${text.slice(0, 400)}`;
+      const msg = Array.isArray(raw) ? (raw as string[]).join(", ") : String(raw);
+      return { ok: false, error: msg };
     }
 
     return { ok: true };
@@ -47,7 +51,6 @@ export async function sendWhatsAppText(
   message: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const number = formatPhone(to);
-  if (number.length < 12) return { ok: false, error: `Número inválido: ${to}` };
   return evolutionRequest("message/sendText", {
     number,
     text: message,
@@ -60,7 +63,6 @@ export async function sendWhatsAppImage(
   caption?: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const number = formatPhone(to);
-  if (number.length < 12) return { ok: false, error: `Número inválido: ${to}` };
   return evolutionRequest("message/sendMedia", {
     number,
     mediatype: "image",
