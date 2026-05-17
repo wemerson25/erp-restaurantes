@@ -222,7 +222,25 @@ export async function GET() {
       });
     }
 
-    // ── 7. Admissões este mês ─────────────────────────────────────
+    // ── 7. Experiência — avaliação de etapa vencendo (≤ 7 dias) ─────
+    for (const func of funcionarios) {
+      const diasNaEmpresa = daysBetween(new Date(func.dataAdmissao), today);
+      if (diasNaEmpresa >= 90) continue;
+      const etapa = diasNaEmpresa < 30 ? 1 : diasNaEmpresa < 60 ? 2 : 3;
+      const etapaDias = etapa === 1 ? 30 : etapa === 2 ? 60 : 90;
+      const diasRestantes = etapaDias - diasNaEmpresa;
+      if (diasRestantes > 7) continue;
+      notificacoes.push({
+        id: `exp_${func.id}_et${etapa}`,
+        tipo: "EXPERIENCIA_VENCENDO",
+        titulo: `Avaliação ${etapaDias} dias vencendo`,
+        descricao: `${func.nome} (${func.restaurante.nome}) — avaliação de ${etapaDias} dias vence em ${diasRestantes} dia${diasRestantes === 1 ? "" : "s"}`,
+        prioridade: diasRestantes <= 3 ? "alta" : "media",
+        funcionarioNome: func.nome,
+      });
+    }
+
+    // ── 8. Admissões este mês ─────────────────────────────────────
     for (const f of admissoesRecentes) {
       notificacoes.push({
         id: `admissao_${idx++}`,
@@ -235,7 +253,7 @@ export async function GET() {
       });
     }
 
-    // ── 8. Demissões este mês ─────────────────────────────────────
+    // ── 9. Demissões este mês ─────────────────────────────────────
     for (const f of demissoesRecentes) {
       notificacoes.push({
         id: `demissao_${idx++}`,
@@ -248,7 +266,7 @@ export async function GET() {
       });
     }
 
-    // ── 9. Colaboradores sem telefone ─────────────────────────────
+    // ── 10. Colaboradores sem telefone ────────────────────────────
     for (const f of semTelefone) {
       notificacoes.push({
         id: `sem_tel_${idx++}`,
@@ -260,7 +278,7 @@ export async function GET() {
       });
     }
 
-    // ── 10. Advertências recentes (7 dias) ───────────────────────
+    // ── 11. Advertências recentes (7 dias) ───────────────────────
     for (const a of advertenciasRecentes) {
       notificacoes.push({
         id: `adv_${a.id}`,

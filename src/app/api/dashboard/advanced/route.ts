@@ -117,12 +117,14 @@ export async function GET() {
       }),
     ]);
 
-    // ── emExperiencia ──────────────────────────────────────────────────────────
+    // ── emExperiencia (3 etapas: 30 / 60 / 90 dias) ───────────────────────────
     const emExperiencia = funcionariosAtivos
       .map((f) => {
         const diasNaEmpresa = daysBetween(new Date(f.dataAdmissao), today);
-        if (diasNaEmpresa > 90) return null;
-        const diasRestantes = 90 - diasNaEmpresa;
+        if (diasNaEmpresa >= 90) return null;
+        const etapa: 1 | 2 | 3 = diasNaEmpresa < 30 ? 1 : diasNaEmpresa < 60 ? 2 : 3;
+        const etapaDias: 30 | 60 | 90 = etapa === 1 ? 30 : etapa === 2 ? 60 : 90;
+        const diasRestantes = etapaDias - diasNaEmpresa;
         return {
           id: f.id,
           nome: f.nome,
@@ -130,8 +132,10 @@ export async function GET() {
           cargo: f.cargo.nome,
           dataAdmissao: new Date(f.dataAdmissao).toISOString().slice(0, 10),
           diasNaEmpresa,
+          etapa,
+          etapaDias,
           diasRestantes,
-          alerta: diasRestantes <= 15 ? "vencendo" as const : "normal" as const,
+          alerta: diasRestantes <= 7 ? "vencendo" as const : "normal" as const,
         };
       })
       .filter((x): x is NonNullable<typeof x> => x !== null)

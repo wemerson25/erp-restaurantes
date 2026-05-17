@@ -46,7 +46,7 @@ interface Aniversariante {
 }
 
 interface AdvancedData {
-  emExperiencia: { id: string; nome: string; restaurante: string; cargo: string; dataAdmissao: string; diasNaEmpresa: number; diasRestantes: number; alerta: "vencendo" | "normal" }[];
+  emExperiencia: { id: string; nome: string; restaurante: string; cargo: string; dataAdmissao: string; diasNaEmpresa: number; etapa: 1 | 2 | 3; etapaDias: 30 | 60 | 90; diasRestantes: number; alerta: "vencendo" | "normal" }[];
   feriasVencendo: { id: string; nome: string; restaurante: string; diasAteVencer: number; periodoFim: string; prioridade: "alta" | "media" }[];
   feriasVencidas: { id: string; nome: string; restaurante: string; diasVencidas: number }[];
   horasExtrasMesAnterior: { id: string; nome: string; matricula: string; restaurante: string; cargo: string; totalHoras: number }[];
@@ -139,13 +139,13 @@ function AlertasRH({ data }: { data: AdvancedData }) {
         {expVencendo.length > 0 && (
           <div>
             <span className="inline-block bg-orange-100 text-orange-700 text-xs font-semibold px-2 py-0.5 rounded-full mb-2">
-              Experiência Vencendo ({expVencendo.length})
+              Avaliação de Experiência Vencendo ({expVencendo.length})
             </span>
             <ul className="space-y-1">
               {expVencendo.slice(0, 6).map((f) => (
                 <li key={f.id} className="flex items-center justify-between text-xs text-orange-800">
                   <span className="font-medium truncate max-w-[60%]">{f.nome}</span>
-                  <span className="text-orange-600 shrink-0">{f.diasRestantes} dias restantes de experiência · {f.restaurante}</span>
+                  <span className="text-orange-600 shrink-0">Aval. {f.etapaDias}d · {f.diasRestantes}d restantes · {f.restaurante}</span>
                 </li>
               ))}
             </ul>
@@ -163,6 +163,12 @@ const TIPO_DEMISSAO_OPTIONS = [
   { value: "JUSTA_CAUSA",     label: "Justa Causa" },
   { value: "ACORDO",          label: "Acordo" },
   { value: "PEDIU_DEMISSAO",  label: "Pediu Demissão" },
+];
+
+const EXPERIENCIA_ETAPAS = [
+  { etapa: 1 as const, label: "Avaliação 30 dias",  inicio: 0,  headerCls: "bg-blue-50 text-blue-700 border-blue-100",   badgeCls: "bg-blue-100 text-blue-700",   barCls: "bg-blue-500" },
+  { etapa: 2 as const, label: "Avaliação 60 dias",  inicio: 30, headerCls: "bg-orange-50 text-orange-700 border-orange-100", badgeCls: "bg-orange-100 text-orange-700", barCls: "bg-orange-400" },
+  { etapa: 3 as const, label: "Avaliação 90 dias",  inicio: 60, headerCls: "bg-red-50 text-red-700 border-red-100",     badgeCls: "bg-red-100 text-red-700",     barCls: "bg-red-500" },
 ];
 
 function ExperienciaCard({ data }: { data: AdvancedData }) {
@@ -202,90 +208,98 @@ function ExperienciaCard({ data }: { data: AdvancedData }) {
           </span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="pt-0">
+      <CardContent className="pt-0 space-y-5">
         {items.length === 0 ? (
           <p className="text-sm text-gray-400 italic py-4 text-center">Nenhum colaborador em período de experiência</p>
         ) : (
-          <ul className="space-y-3 max-h-96 overflow-y-auto pr-1">
-            {items.map((f) => {
-              const pct = Math.round((f.diasNaEmpresa / 90) * 100);
-              const badgeColor =
-                f.diasRestantes <= 15 ? "bg-red-100 text-red-700" :
-                f.diasRestantes <= 30 ? "bg-yellow-100 text-yellow-700" :
-                "bg-green-100 text-green-700";
-              const isOpen = demitindoId === f.id;
-              return (
-                <li key={f.id} className="space-y-1.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-gray-900 truncate">{f.nome}</p>
-                      <p className="text-xs text-gray-400 truncate">{f.restaurante} · {f.cargo}</p>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeColor}`}>
-                        {f.diasRestantes}d
-                      </span>
-                      <button
-                        onClick={() => {
-                          setDemitindoId(isOpen ? null : f.id);
-                          setForm({ dataDemissao: "", tipoDemissao: "" });
-                        }}
-                        className="text-[11px] font-semibold px-2 py-0.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
-                      >
-                        {isOpen ? "Cancelar" : "Demitir"}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${
-                        f.diasRestantes <= 15 ? "bg-red-500" :
-                        f.diasRestantes <= 30 ? "bg-yellow-400" : "bg-blue-500"
-                      }`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  {isOpen && (
-                    <div className="bg-red-50 border border-red-100 rounded-xl p-3 space-y-2">
-                      <p className="text-xs font-semibold text-red-700">Registrar demissão — {f.nome}</p>
-                      <div className="flex gap-2">
-                        <div className="flex-1">
-                          <label className="text-[10px] text-gray-500 mb-1 block">Data de demissão</label>
-                          <input
-                            type="date"
-                            value={form.dataDemissao}
-                            onChange={e => setForm(p => ({ ...p, dataDemissao: e.target.value }))}
-                            className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-red-400"
+          EXPERIENCIA_ETAPAS.map(({ etapa, label, inicio, headerCls, badgeCls, barCls }) => {
+            const grupo = items.filter(f => f.etapa === etapa);
+            if (grupo.length === 0) return null;
+            return (
+              <div key={etapa} className="space-y-2">
+                <div className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-xs font-semibold ${headerCls}`}>
+                  <span>{label}</span>
+                  <span className="font-bold">{grupo.length}</span>
+                </div>
+                <ul className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                  {grupo.map((f) => {
+                    const pct = Math.min(Math.round(((f.diasNaEmpresa - inicio) / 30) * 100), 100);
+                    const isVencendo = f.alerta === "vencendo";
+                    const isOpen = demitindoId === f.id;
+                    return (
+                      <li key={f.id} className="space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="text-sm font-semibold text-gray-900 truncate">{f.nome}</p>
+                              {isVencendo && (
+                                <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600">⚠ vencendo</span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-400 truncate">{f.restaurante} · {f.cargo}</p>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isVencendo ? "bg-red-100 text-red-700" : badgeCls}`}>
+                              {f.diasRestantes}d
+                            </span>
+                            <button
+                              onClick={() => { setDemitindoId(isOpen ? null : f.id); setForm({ dataDemissao: "", tipoDemissao: "" }); }}
+                              className="text-[11px] font-semibold px-2 py-0.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+                            >
+                              {isOpen ? "Cancelar" : "Demitir"}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${isVencendo ? "bg-red-500" : barCls}`}
+                            style={{ width: `${pct}%` }}
                           />
                         </div>
-                        <div className="flex-1">
-                          <label className="text-[10px] text-gray-500 mb-1 block">Tipo</label>
-                          <select
-                            value={form.tipoDemissao}
-                            onChange={e => setForm(p => ({ ...p, tipoDemissao: e.target.value }))}
-                            className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-red-400"
-                          >
-                            <option value="">Selecione</option>
-                            {TIPO_DEMISSAO_OPTIONS.map(o => (
-                              <option key={o.value} value={o.value}>{o.label}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => confirmarDemissao(f.id)}
-                        disabled={!form.dataDemissao || !form.tipoDemissao || saving}
-                        className="w-full text-xs font-semibold bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white rounded-lg py-1.5 transition-colors flex items-center justify-center gap-1"
-                      >
-                        {saving ? <Loader2 size={12} className="animate-spin" /> : null}
-                        Confirmar Demissão
-                      </button>
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+                        {isOpen && (
+                          <div className="bg-red-50 border border-red-100 rounded-xl p-3 space-y-2">
+                            <p className="text-xs font-semibold text-red-700">Registrar demissão — {f.nome}</p>
+                            <div className="flex gap-2">
+                              <div className="flex-1">
+                                <label className="text-[10px] text-gray-500 mb-1 block">Data de demissão</label>
+                                <input
+                                  type="date"
+                                  value={form.dataDemissao}
+                                  onChange={e => setForm(p => ({ ...p, dataDemissao: e.target.value }))}
+                                  className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-red-400"
+                                />
+                              </div>
+                              <div className="flex-1">
+                                <label className="text-[10px] text-gray-500 mb-1 block">Tipo</label>
+                                <select
+                                  value={form.tipoDemissao}
+                                  onChange={e => setForm(p => ({ ...p, tipoDemissao: e.target.value }))}
+                                  className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-red-400"
+                                >
+                                  <option value="">Selecione</option>
+                                  {TIPO_DEMISSAO_OPTIONS.map(o => (
+                                    <option key={o.value} value={o.value}>{o.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => confirmarDemissao(f.id)}
+                              disabled={!form.dataDemissao || !form.tipoDemissao || saving}
+                              className="w-full text-xs font-semibold bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white rounded-lg py-1.5 transition-colors flex items-center justify-center gap-1"
+                            >
+                              {saving ? <Loader2 size={12} className="animate-spin" /> : null}
+                              Confirmar Demissão
+                            </button>
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })
         )}
       </CardContent>
     </Card>
