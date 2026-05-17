@@ -1,11 +1,8 @@
 function formatPhone(raw: string): string {
   const digits = raw.replace(/\D/g, "");
-  let number: string;
-  if (digits.startsWith("55") && digits.length >= 12) number = digits;
-  else if (digits.length >= 10 && digits.length <= 11) number = `55${digits}`;
-  else number = digits;
-  // Evolution API v2 requires the WhatsApp JID format
-  return number.includes("@") ? number : `${number}@s.whatsapp.net`;
+  if (digits.startsWith("55") && digits.length >= 12) return digits;
+  if (digits.length >= 10 && digits.length <= 11) return `55${digits}`;
+  return digits;
 }
 
 async function evolutionRequest(
@@ -51,9 +48,10 @@ export async function sendWhatsAppText(
   message: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const number = formatPhone(to);
+  if (number.length < 12) return { ok: false, error: `Número inválido: ${to}` };
   return evolutionRequest("message/sendText", {
     number,
-    text: message,
+    textMessage: { text: message },
   });
 }
 
@@ -63,12 +61,15 @@ export async function sendWhatsAppImage(
   caption?: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const number = formatPhone(to);
+  if (number.length < 12) return { ok: false, error: `Número inválido: ${to}` };
   return evolutionRequest("message/sendMedia", {
     number,
-    mediatype: "image",
-    mimetype:  "image/png",
-    caption:   caption ?? "",
-    media:     imageBuffer.toString("base64"),
+    mediaMessage: {
+      mediatype: "image",
+      mimetype:  "image/png",
+      caption:   caption ?? "",
+      media:     imageBuffer.toString("base64"),
+    },
   });
 }
 
