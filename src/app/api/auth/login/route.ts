@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword, createSessionToken } from "@/lib/auth";
+import { ensureComprasTables } from "@/lib/compras-setup";
 
 export async function POST(req: NextRequest) {
+  await ensureComprasTables();
   const { email, password } = await req.json();
 
   if (!email || !password) {
