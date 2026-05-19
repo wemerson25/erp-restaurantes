@@ -75,6 +75,8 @@ export async function ensureComprasTables() {
     `ALTER TABLE "ProdutoEstoque" ADD COLUMN "restaurante" TEXT`,
     `ALTER TABLE "ProdutoEstoque" ADD COLUMN "ordemCategoria" INTEGER NOT NULL DEFAULT 0`,
     `ALTER TABLE "ProdutoEstoque" ADD COLUMN "ativo" INTEGER NOT NULL DEFAULT 1`,
+    `ALTER TABLE "ProdutoEstoque" ADD COLUMN "setor" TEXT NOT NULL DEFAULT 'Geral'`,
+    `ALTER TABLE "ContagemSemanal" ADD COLUMN "responsavel" TEXT`,
   ];
   for (const sql of extraCols) {
     try { await prisma.$executeRawUnsafe(sql); } catch { /* column already exists */ }

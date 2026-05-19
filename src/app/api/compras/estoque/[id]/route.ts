@@ -8,7 +8,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const allowed = [
     "nome", "categoria", "unidade", "quantidadeAtual", "quantidadeMinima",
     "metaSemanal", "qtdPorPacote", "ilimitado", "sacaThresholdCheia", "sacaThresholdMeia",
-    "restaurante", "ordemCategoria", "ativo",
+    "restaurante", "ordemCategoria", "ativo", "setor",
   ];
 
   const updates: string[] = [];

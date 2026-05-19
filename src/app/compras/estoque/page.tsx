@@ -18,7 +18,7 @@ type Produto = {
   quantidadeAtual: number; quantidadeMinima: number;
   metaSemanal: number; qtdPorPacote: number; ilimitado: number;
   sacaThresholdCheia: number | null; sacaThresholdMeia: number | null;
-  restaurante: string | null; ordemCategoria: number; ativo: number;
+  restaurante: string | null; ordemCategoria: number; ativo: number; setor: string;
 };
 
 type ContagemMap = Record<string, { qtdContada: number; qtdDeposito: number }>;
@@ -38,7 +38,7 @@ const emptyProduto = () => ({
   quantidadeAtual: 0, quantidadeMinima: 0,
   metaSemanal: 0, qtdPorPacote: 1, ilimitado: false,
   sacaThresholdCheia: "", sacaThresholdMeia: "",
-  restaurante: "", ordemCategoria: 0,
+  restaurante: "", ordemCategoria: 0, setor: "Geral",
 });
 
 // ─── Main Component ──────────────────────────────────────────────────────────
@@ -160,18 +160,22 @@ function ContagemTab({
   const [finalizando, setFinalizando] = useState(false);
   const [finalizado, setFinalizado] = useState(false);
   const [showShare, setShowShare] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copiedSetor, setCopiedSetor] = useState<string | null>(null);
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  const shareUrl =
+  const setores = [...new Set(
+    produtos.filter((p) => p.setor && p.setor !== "Geral").map((p) => p.setor)
+  )].sort();
+
+  const getSetorUrl = (s: string) =>
     typeof window !== "undefined"
-      ? `${window.location.origin}/contagem?semana=${semana}${restaurante ? `&restaurante=${encodeURIComponent(restaurante)}` : ""}`
+      ? `${window.location.origin}/contagem?semana=${semana}${restaurante ? `&restaurante=${encodeURIComponent(restaurante)}` : ""}&setor=${encodeURIComponent(s)}`
       : "";
 
-  const copyLink = () => {
-    navigator.clipboard.writeText(shareUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
+  const copySetorLink = (s: string) => {
+    navigator.clipboard.writeText(getSetorUrl(s));
+    setCopiedSetor(s);
+    setTimeout(() => setCopiedSetor(null), 2500);
   };
 
   const loadContagens = useCallback(() => {
@@ -258,30 +262,50 @@ function ContagemTab({
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="font-bold text-gray-900">Link para contagem</h3>
+              <div>
+                <h3 className="font-bold text-gray-900">Links para contagem</h3>
+                <p className="text-xs text-gray-400 mt-0.5">{semana} · {restaurante || "Todas as unidades"}</p>
+              </div>
               <button onClick={() => setShowShare(false)} className="text-gray-400 hover:text-gray-600">
                 <X size={18} />
               </button>
             </div>
-            <div className="px-5 py-5 space-y-4">
-              <p className="text-sm text-gray-500">
-                Envie este link pelo WhatsApp ou cole no navegador do celular. Os colaboradores podem contar o estoque sem precisar de login.
-              </p>
-              <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">
-                <p className="text-xs text-gray-400 mb-1">Link da semana {semana}</p>
-                <p className="text-sm text-gray-800 break-all font-mono leading-relaxed">{shareUrl}</p>
-              </div>
-              <button
-                onClick={copyLink}
-                className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm transition-colors ${
-                  copied ? "bg-green-500 text-white" : "bg-blue-600 text-white hover:bg-blue-700"
-                }`}
-              >
-                {copied ? <><CheckCheck size={16} /> Link copiado!</> : <><Copy size={16} /> Copiar link</>}
-              </button>
-              <p className="text-xs text-center text-gray-400">
-                O link é válido para <strong>{restaurante || "todas as unidades"}</strong> na semana atual.
-              </p>
+            <div className="px-5 py-5 space-y-3">
+              {!restaurante ? (
+                <p className="text-sm text-gray-500 text-center py-4">
+                  Selecione uma unidade para gerar os links de contagem por setor.
+                </p>
+              ) : setores.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">
+                  Nenhum setor encontrado. Cadastre produtos com setor definido.
+                </p>
+              ) : (
+                <>
+                  <p className="text-xs text-gray-500">
+                    Envie cada link para o responsável do setor. Não é necessário login.
+                  </p>
+                  <div className="space-y-2">
+                    {setores.map((s) => (
+                      <div key={s} className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3 border border-gray-100">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900">{s}</p>
+                          <p className="text-xs text-gray-400 truncate font-mono">{getSetorUrl(s)}</p>
+                        </div>
+                        <button
+                          onClick={() => copySetorLink(s)}
+                          className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                            copiedSetor === s
+                              ? "bg-green-500 text-white"
+                              : "bg-blue-600 text-white hover:bg-blue-700"
+                          }`}
+                        >
+                          {copiedSetor === s ? <><CheckCheck size={13} /> Copiado</> : <><Copy size={13} /> Copiar</>}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -671,6 +695,7 @@ function ProdutosTab({ produtos, onRefresh }: { produtos: Produto[]; onRefresh: 
       sacaThresholdCheia: p.sacaThresholdCheia != null ? String(p.sacaThresholdCheia) : "",
       sacaThresholdMeia: p.sacaThresholdMeia != null ? String(p.sacaThresholdMeia) : "",
       restaurante: p.restaurante ?? "", ordemCategoria: p.ordemCategoria,
+      setor: p.setor ?? "Geral",
     });
     setEditId(p.id);
     setShowForm(true);
@@ -721,7 +746,11 @@ function ProdutosTab({ produtos, onRefresh }: { produtos: Produto[]; onRefresh: 
               <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                 <td className="px-4 py-3">
                   <p className="font-medium text-gray-900">{p.nome}</p>
-                  {p.restaurante && <p className="text-xs text-gray-400">{p.restaurante}</p>}
+                  {p.restaurante && (
+                    <p className="text-xs text-gray-400">
+                      {p.restaurante}{p.setor && p.setor !== "Geral" && ` · ${p.setor}`}
+                    </p>
+                  )}
                   {Boolean(p.ilimitado) && <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">ilimitado</span>}
                 </td>
                 <td className="px-3 py-3 text-gray-600">{p.categoria}</td>
@@ -783,6 +812,19 @@ function ProdutosTab({ produtos, onRefresh }: { produtos: Produto[]; onRefresh: 
                   <label className="block text-xs font-medium text-gray-600 mb-1">Restaurante (opcional)</label>
                   <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
                     value={form.restaurante} onChange={(e) => f("restaurante", e.target.value)} placeholder="Ex: YKEDIN, DECK..." />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Setor</label>
+                  <select
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                    value={form.setor}
+                    onChange={(e) => f("setor", e.target.value)}
+                  >
+                    <option value="Geral">Geral</option>
+                    <option value="Cozinha">Cozinha</option>
+                    <option value="Atendimento">Atendimento</option>
+                    <option value="Sushibar">Sushibar</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Threshold saca (cheia)</label>
